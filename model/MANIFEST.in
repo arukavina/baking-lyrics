@@ -1,0 +1,2 @@
+include versioneer.py
+include src/bl-model/_version.py
