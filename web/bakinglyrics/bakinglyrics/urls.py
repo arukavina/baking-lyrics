@@ -16,10 +16,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.conf.urls import url, include
+from bakinglyricsapp.views import index
+from bakinglyricsapp.views import sendParametersToServer
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    url(r'^', include('howdy.urls')),
+    url(r'^bakinglyrics/', index, name='bakinglyrics'),
+    url(r'^sendParametersToServer/', sendParametersToServer, name='sendParametersToServer'),
+    url(r'^', index, name='bakinglyrics'),
     url(r'^jet/', include('jet.urls', 'jet')),  # Django JET URLS
     url(r'^jet/dashboard/', include('jet.dashboard.urls', 'jet-dashboard')),  # Django JET dashboard URLS
 ]
