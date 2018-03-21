@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<form action="" method="post">{% csrf_token %}
+<html>
+    <head>
+      <style>
+
+      /* Popup box BEGIN */
+    .hover_bkgr_fricc{
+    background:rgba(0,0,0,.4);
+    cursor:pointer;
+    display:none;
+    height:100%;
+    position:fixed;
+    text-align:center;
+    top:0;
+    width:100%;
+    z-index:10000;
+    }
+   .hover_bkgr_fricc .helper{
+    display:inline-block;
+    height:100%;
+    vertical-align:middle;
+    }
+    .hover_bkgr_fricc > div {
+    background-color: #fff;
+    box-shadow: 10px 10px 60px #555;
+    display: inline-block;
+    height: auto;
+    max-width: 551px;
+    min-height: 100px;
+    vertical-align: middle;
+    width: 60%;
+    position: relative;
+    border-radius: 8px;
+    padding: 15px 5%;
+   }
+   .popupCloseButton {
+    background-color: #fff;
+    border: 3px solid #999;
+    border-radius: 50px;
+    cursor: pointer;
+    display: inline-block;
+    font-family: arial;
+    font-weight: bold;
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    font-size: 25px;
+    line-height: 30px;
+    width: 30px;
+    height: 30px;
+    text-align: center;
+   }
+   .popupCloseButton:hover {
+    background-color: #ccc;
+    }
+   .trigger_popup_fricc {
+    cursor: pointer;
+    font-size: 20px;
+    margin: 20px;
+    display: inline-block;
+    font-weight: bold;
+    }
+/* Popup box BEGIN */
+
+      </style>
+
+      <meta charset="UTF-8" />
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+      <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.blockUI/2.70/jquery.blockUI.js"></script>
+      <title>BakingLyrics</title>
+
+    </head>
+
+    <body>
+
+      <div  id = 'initialdiv' class="container">
+      <h1> Choose your band </h1>
+       {% for band in bands %}
+          {% if forloop.first %}<div class="row">{% endif %}
+           <div class="col-xs-4">
+                  <h2> {{band.bandName}} <button id = "{{band.auto_increment_id}}" type="button" onclick=getBandId(this.id) class="btn btn-primary">Choose!</button>  </h2>
+                  <img   src = "{{band.image}}" width="300" height="270" alt = "" />
+          </div>
+          {% if forloop.counter|divisibleby:3 %}</div><div class="row">{% endif %}
+         {% if forloop.last %}</div>{% endif %}
+       {% endfor %}
+       </div>
+
+             <div class="hover_bkgr_fricc">
+                <span class="helper"></span>
+               <div>
+              <div class="popupCloseButton">X</div>
+              <h2> Select a decade: </h2>
+              <select id = 'selecteddecade' >
+                      <option>60's</option>
+                      <option>70's</option>
+                      <option>80's</option>
+                      <option>90's</option>
+                      <option>00's</option>
+              </select>
+              <button id = "finishrequest" type="button"  class="btn btn-danger">Select!</button>
+             </div>
+             </div>
+      <div id = 'finaldiv'>
+        <h2> Congratulations! You have chosen: </h2>
+
+        <div  class="container">
+        <h2 id = 'bandtitle'> </h2>
+         <div class="row">
+             <div class="col-xs-4">
+
+            <img   id = 'finalpic' src = "" width="300" height="270" alt = "" />
+            <h3> Decade:</h3>
+            <h3 id='decadeparameter'></h3>
+            </div>
+            </div>
+            <h4>Check the song we have created for you:</h4>
+            <textarea rows="20" cols="50">
+             Andrei's magic la ! la! la! la! la!
+            </textarea>
+         </div>
+      </div>
+      <script>
+      var selected_band_id
+
+      $('#finaldiv').hide();
+
+      $('.popupCloseButton').click(function(){
+       $('.hover_bkgr_fricc').hide();
+        });
+
+      function getBandId (id) {
+                selected_band_id = id
+                $('.hover_bkgr_fricc').show();
+
+        }
+
+     $('#finishrequest').click(function(){
+                          $('.hover_bkgr_fricc').hide();
+                          $('#initialdiv').hide();
+                          $('#finaldiv').show();
+                          $('.hover_bkgr_fricc').hide();
+                          $.ajax({
+                                                          type: 'POST',
+                                                          url: '/sendParametersToServer/',
+                                                          dataType :"json",
+                                                          async : true,
+                                                          beforeSend: function() {$.blockUI({ message: '<h1><img src="http://i.stack.imgur.com/FhHRx.gif" /> Sending parameters....</h1>' }); },
+                                                          complete: function() {$.unblockUI();},
+                                                          data: {selected_band_id: selected_band_id,
+                                                                 selected_decade: $("#selecteddecade").val(),
+                                                                 csrfmiddlewaretoken: $('input[name=csrfmiddlewaretoken]').val()
+                                                          },
+                                                          success:function (result) {
+                                                          document.getElementById("bandtitle").innerHTML = result['selected_band'];
+                                                          document.getElementById("finalpic").src=result['band_image'];
+                                                          document.getElementById("decadeparameter").innerHTML = result['selected_decade'];
+                                                          }
+
+                          });
+
+                          });
+
+      </script>
+    </body>
+</html>
