@@ -1,0 +1,28 @@
+{
+  "bands":[
+    {"name": "Soda Stereo",
+      "decades":[
+            {"StartYear": 1980},
+            {"StartYear": 1990},
+            {"StartYear": 2000}]
+    },
+    {"name": "Las Pelotas",
+      "decades":[
+            {"StartYear": 1980},
+            {"StartYear": 1990},
+            {"StartYear": 2000}]
+    },
+    {"name": "Divididos",
+      "decades":[
+            {"StartYear": 1980},
+            {"StartYear": 1990},
+            {"StartYear": 2000}]
+    },
+    {"name": "Sumo",
+      "decades":[
+            {"StartYear": 1980},
+            {"StartYear": 1990},
+            {"StartYear": 2000}]
+    }
+  ]
+}
