@@ -6,8 +6,20 @@ class Band:
 
     def set_data(self, band_data):
         self.name = band_data["name"]
-        self.decades = band_data["decades"]
+        for i in band_data["decades"]:
+            self.decades.append(i)
 
+    def serialize(self):
+        # creating decades dictionary
+
+        return {
+            'band': {
+                'name': self.name,
+                'decades': [
+                    self.decades
+                ]
+            }
+        }
 
 
 
