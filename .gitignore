@@ -127,3 +127,7 @@ xml2docx/.idea/modules.xml
 xml2docx/.idea/workspace.xml
 
 xml2docx/.idea/xml2docx.iml
+
+*.yaml
+
+*.h5
