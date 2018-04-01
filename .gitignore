@@ -99,7 +99,6 @@ ENV/
 model/.idea/
 scrapper.idea/
 web/.idea/
-api/.idea/
 
 *.iml
 
@@ -114,6 +113,8 @@ api/.idea/
 .idea/vcs.xml
 
 .idea/workspace.xml
+
+xml2docx/.idea/dictionaries/arukavina.xml
 
 xml2docx/.idea/markdown-navigator.xml
 
