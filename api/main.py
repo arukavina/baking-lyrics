@@ -3,7 +3,7 @@ from flask import abort
 from flask import jsonify
 from werkzeug.exceptions import HTTPException
 import configparser
-from helpers import ErrorHandler as Eh
+from helpers import HttpHandler as http
 import json
 from Model import Band
 
@@ -14,6 +14,7 @@ bands = []
 
 @app.before_first_request
 def load_bands():
+    """Loads available bands in json file on memory"""
     try:
         Config.read("./CONFIG.INI")
         json_data = open(Config.get("PATHS", "BandsPath")).read()
@@ -34,25 +35,46 @@ def load_bands():
         abort(505, "Unknown exception while parsing Bands file: " + str(e))
 
 
+@app.route('/api/refresh_bands/', methods=['GET'])
+def refresh_bands():
+    """refresh list of bands in memory (the purpose of this is not have to reload api if json is updated)"""
+    try:
+        load_bands()
+        return http.HttpHandler(200, "Success").return_json_http()
+    except HTTPException:
+        raise
+
+
 @app.route('/api/bands', methods=['GET'])
 def get_all_bands():
+    """Return the list of all bands"""
     try:
         return jsonify(bands=[e.serialize() for e in bands])
     except HTTPException:
         raise
 
 
+@app.route('/api/bands/<mask>', methods=['GET'])
+def get_bands_by_mask(mask):
+    """Returns the list of bands if the band name contains mask parameter"""
+    try:
+        mask_lower = mask.lower()
+        return jsonify(bands=[e.serialize() for e in bands if e.name.lower().find(mask_lower) != -1])
+    except HTTPException:
+        raise
+
+
 @app.errorhandler(404)
 def not_found(error):
-    error_object = Eh.ErrorHandler(404, error)
-    return error_object.return_json_error()
+    error_object = http.HttpHandler(404, error)
+    return error_object.return_json_http()
 
 
 @app.errorhandler(505)
 def not_found(error):
-    error_object = Eh.ErrorHandler(505, error)
-    return error_object.return_json_error()
+    error_object = http.HttpHandler(505, error)
+    return error_object.return_json_http()
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5002)
+    app.run(host='127.0.0.1', port=5002)
