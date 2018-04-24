@@ -38,8 +38,64 @@ class Model(object, metaclass=abc.ABCMeta):
     def __str__(self):
         raise NotImplementedError('User must define __str__ to use this base class')
 
+    @abc.abstractmethod
     def generate_sentence(self, *kargs):
         raise NotImplementedError('User must define generate_sentence to use this base class')
+
+
+class NGramsModel(Model):
+    def __init__(self, model_file_path, seed_file_path="../data/corpus.txt"):
+
+        logger.info('Checking if "seed_file_path" is a valid path: {}'.format(seed_file_path))
+        if not os.path.exists(seed_file_path):
+            logger.error("[{}] is not a valid path".format(seed_file_path))
+            raise IOError()
+
+        super().__init__(model_file_path)
+
+        self.seed_file_path = seed_file_path
+
+        self.text = None
+        self.characters = None
+        self.length = None
+
+    def load_model(self):
+
+        self.text = (open(self.seed_file_path).read())
+        self.text = self.text.lower().strip()
+        self.characters = sorted(list(set(self.text)))
+        self.length = len(self.text)
+
+        logger.info("Characters V: {}".format(self.characters))
+        logger.info("Text length: {}".format(self.length))
+
+        # TODO: Complete this method.
+        loaded_model = None
+
+        self.model = loaded_model
+        self.model_loaded = True
+
+        logger.info("Loaded model from disk")
+
+    def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
+
+        if lang != 'es':
+            raise NotImplementedError
+
+        if not self.model_loaded:
+            logger.info("Model not loaded, loading it now...")
+            self.load_model()
+
+        # TODO: Complete this method.
+        txt = ""
+
+        logger.info('Generated: {}'.format(txt))
+
+        return txt
+
+    def __str__(self):
+        from pprint import pprint
+        pprint(vars(self))
 
 
 class LSTMModel(Model):
@@ -76,7 +132,7 @@ class LSTMModel(Model):
         logger.info("Text length: {}".format(self.length))
 
         # Load YAML and create model
-        logger.info("Loading Model...")
+        logger.info("Loading model...")
 
         try:
             yaml_file = open(self.model_file_path, 'r')

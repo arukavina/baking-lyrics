@@ -1,6 +1,10 @@
-from flask import Flask, jsonify
-import pickle
-import json
+#!/usr/bin/env python
+"""
+Flask HTTP Handler
+"""
+
+# Libs
+from flask import jsonify
 
 
 class HttpHandler:
