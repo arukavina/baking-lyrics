@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<form action="" method="post"/>{% csrf_token %}
+<html>
+
+    <head>
+        {% load static %}
+        <link rel="shortcut icon" href="{% static 'bakinglyrics/img/baking-lyrics.ico' %}">
+
+      <meta charset="UTF-8" />
+        <meta name="google-signin-client_id" content="117639012167-rmi0odvlk3gbpf8dfcq4n8o3gt3athca.apps.googleusercontent.com">
+
+        <link rel="stylesheet" type="text/css" href="{% static 'bakinglyrics/css/style.css' %}" />
+        <link rel="stylesheet" type="text/css" href="{% static 'bakinglyrics/css/bootstrap.min.css' %}" />
+        <script src="{% static 'bakinglyrics/js/facebook.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/jquery-3.3.1.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/bakinglyrics.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/bootstrap.min.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/jquery.blockUI.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/underscore-min.js' %}"></script>
+        <script src="{% static 'bakinglyrics/js/platform.js' async defer %}"></script>
+        <title>BakingLyrics</title>
+    </head>
+
+    <body>
+
+
+      <div  id = 'initialdiv' class="container">
+
+          <div class="container">
+              <div class="row">
+                     <div class="col">
+
+                     </div>
+                    <div class="col">
+
+                     </div>
+                     <div class="col">
+                         <fb:login-button data-auto-logout-link="true", scope="public_profile,email,user_birthday,user_hometown,user_location" onlogin="checkLoginState();" size="large">Log In with Facebook</fb:login-button>
+                          </div>
+                     <div class="col">
+                     <div class="g-signin2" data-onsuccess="onSignIn"></div>
+                         <a id= "signout"; href="#" onclick="signOut();">Sign out</a>
+                     </div>
+              </div>
+          </div>
+          <div>
+          <h1 style = "margin-top:10px;margin-bottom:20px"> Choose your band </h1>
+          </div>
+          <input style= "width: 900px; margin-bottom:30px" type="text" id="inputsearchbands" placeholder="Search band..." onkeydown="filterBands()" onkeyup="filterBands()"> </input>
+            <div id = 'pictures'>
+
+            </div>
+      </div>
+
+      <div class='hover_bkgr_fricc'>
+          <span class='helper'></span>
+          <div>
+              <div class='popupCloseButton'>X</div>
+                  <h2> Select a decade: </h2>
+                  <select id = 'selecteddecade' >
+
+                  </select>
+
+   <button id = 'finishrequest' type='button'  class='btn btn-danger'>Select!</button>
+          </div>
+      </div>
+
+      <div id = 'finaldiv'>
+        <h2> Congratulations! You have chosen: </h2>
+
+             <div  class='container'>
+                    <h2 id = 'bandtitle'> </h2>
+                    <div class="row">
+                        <div class="col-xs-4">
+                            <img   id = 'finalpic' src = "" width="300" height="270" alt = "" />
+                            <h3> Decade:</h3>
+                            <h3 id='decadeparameter'></h3>
+                       </div>
+                    </div>
+                 <h4>Check the song we have created for you:</h4>
+
+                 <textarea rows="20" cols="50">Andrei's magic la ! la! la! la! la!</textarea>
+                 <p></p>
+                <button id = "backtostart" type="button"  onclick = back() class="btn btn-success">Back To Start!</button>
+                 <p></p>
+                 <p></p>
+             </div>
+
+      </div>
+     <script type="text/javascript">
+
+   $.getScript("{% static 'bakinglyrics/js/bakinglyrics.js' %}", function(){
+      });
+
+     </script>
+
+    </body>
+</html>
