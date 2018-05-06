@@ -32,7 +32,7 @@ def index(request):
 def get_all_bands(request):
     if request.method == 'POST':
         bands_list = []
-        with urllib.request.urlopen('http://127.0.0.1:5002/api/bands') as url:
+        with urllib.request.urlopen('http://127.0.0.1:5002/baking_api/bands') as url:
             data = json.loads(url.read().decode())
         i = 1
         for element in data['bands']:

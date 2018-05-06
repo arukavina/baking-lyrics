@@ -9,9 +9,9 @@ import os
 import datetime
 
 # Own
-from util import log_utils
+from baking_api.util import log_utils
 
-logger = log_utils.get_logger('bl-api')
+logger = log_utils.get_logger('bl-baking_api')
 
 
 class Model(object, metaclass=abc.ABCMeta):
@@ -255,8 +255,8 @@ if __name__ == '__main__':
         log_level=2
     )
 
-    log_utils.setup_logging('bl-api-mlAbl', timestamp, settings)
-    logger = log_utils.get_logger('bl-api-mlAbl')
+    log_utils.setup_logging('bl-baking_api-mlAbl', timestamp, settings)
+    logger = log_utils.get_logger('bl-baking_api-mlAbl')
 
     logger.info(os.getcwd())
 
