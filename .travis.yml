@@ -1,0 +1,17 @@
+language: python
+
+python:
+    - "2.7"
+    - "3.5"
+    - "3.6"
+
+# Dependencies
+install:
+  -pip install -r requirements/dev.txt
+
+script:
+  - coverage erase
+  - coverage run test_webapp.py && coverage html
+
+after_success:
+  - codecov

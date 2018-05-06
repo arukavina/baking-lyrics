@@ -1,0 +1,16 @@
+{
+  "bands":[
+    {"name": "Soda Stereo",
+      "decades":[1980, 1990, 2000]
+    },
+    {"name": "Las Pelotas",
+      "decades":[1980, 1990, 2000]
+    },
+    {"name": "Divididos",
+      "decades":[1980, 1990, 2000]
+    },
+    {"name": "Sumo",
+      "decades":[1980,1990,2000]
+    }
+  ]
+}
