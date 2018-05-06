@@ -97,8 +97,6 @@ ENV/
 
 .idea/
 model/.idea/
-scrapper.idea/
-web/.idea/
 
 *.iml
 
@@ -131,3 +129,4 @@ xml2docx/.idea/xml2docx.iml
 *.yaml
 
 *.h5
+.pytest_cache/

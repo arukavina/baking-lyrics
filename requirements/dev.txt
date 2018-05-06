@@ -1,0 +1,16 @@
+# requirements/dev.txt
+
+-r prod.txt
+
+# Debug
+Flask-DebugToolbar==0.10.1
+
+# PEP8
+pylint==1.8.1
+
+# Coverage
+coverage==4.4.2
+
+# Documentation
+Sphinx==1.6.5
+sphinx-autobuild==0.7.1
