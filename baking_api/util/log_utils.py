@@ -32,11 +32,11 @@ def setup_logging(name, ts, args):
 
     named_level = logging.DEBUG
 
-    log_dir = args['log_dir']
-    del args['log_dir']
+    log_dir = args['LOG_DIR']
+    del args['LOG_DIR']
 
-    level = args['log_level']
-    del args['log_level']
+    level = args['LOG_LEVEL']
+    del args['LOG_LEVEL']
 
     try:
         named_level = _levelToLevel[level]

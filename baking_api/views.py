@@ -4,40 +4,35 @@ Flask End-Point
 """
 
 # Generic
-import os
-import datetime
-import configparser
 import json
 
-# Libs
-from flask import Flask
 from flask import abort
 from flask import jsonify
 from flask import request
 from werkzeug.exceptions import HTTPException
 
-# Own
-from util import log_utils
-from model.band import Band
-from helpers import http_handler as http
+from baking_api import app
+from baking_api.models import Band
+from baking_api.helpers import http_handler as http
+from baking_api.util import log_utils
 
-app = Flask(__name__)
-config_parser = configparser.ConfigParser()
+
 bands = []
 
 _valid_models = {
-    'current': 'CurrentModel',
+    'current': 'Current_Model',
     'lstm': 'LSTMModel',
     'ngrams': 'NGramsModel'
 }
+
+logger = log_utils.get_logger('baking_api')
 
 
 @app.before_first_request
 def load_bands():
     """Loads available bands in json file on memory"""
     try:
-        config_parser.read("./CONFIG.INI")
-        json_data = open(config_parser.get("PATHS", "BandsPath")).read()
+        json_data = open(app.config["BANDS_PATH"]).read()
         data = json.loads(json_data)
         for value in data["bands"]:
             band = Band()
@@ -45,19 +40,17 @@ def load_bands():
             bands.append(band)
         logger.info("Bands loaded in memory")
     except FileNotFoundError as e:
-        logger.error("Config file or bands file doesn't exist: " + str(e))
         abort(500, "Config file or bands file doesn't exist: " + str(e))
     except ValueError as e:
-        logger.error("Json decoding for Bands file has failed: " + str(e))
         abort(500, "Json decoding for Bands file has failed: " + str(e))
     except Exception as e:
-        logger.error("Unknown exception while parsing Bands file: " + str(e))
         abort(500, "Unknown exception while parsing Bands file: " + str(e))
 
 
 @app.before_request
 def before_request():
-    values = '[{}] with {} - Request.Values: '.format(request.remote_addr, request.headers.get('User-Agent'))
+    values = '[{}] with {} - Request.Values: '.format(request.remote_addr,
+                                                      request.headers.get('User-Agent'))
     if len(request.values) == 0:
         values += '(None)'
     for key in request.values:
@@ -65,9 +58,12 @@ def before_request():
     logger.info(values)
 
 
-@app.route('/api/refresh_bands/', methods=['GET'])
+@app.route('/baking_api/refresh_bands/', methods=['GET'])
 def refresh_bands():
-    """refresh list of bands in memory (the purpose of this is not have to reload api if json is updated)"""
+    """
+    Refresh list of bands in memory
+    This function is to not have to reload baking_api if json is updated.
+    """
     try:
         load_bands()
         return http.HttpHandler(200, "Success").return_json_http()
@@ -75,29 +71,35 @@ def refresh_bands():
         raise
 
 
-@app.route('/api/bands', methods=['GET'])
+@app.route('/baking_api/bands', methods=['GET'])
 def get_all_bands():
-    """Return the list of all bands"""
+    """
+    Return the list of all bands
+    :return: json of bands
+    """
+    ""
     try:
         return jsonify(bands=[e.serialize() for e in bands])
     except HTTPException:
         raise
 
 
-@app.route('/api/bands/<mask>', methods=['GET'])
+@app.route('/baking_api/bands/<mask>', methods=['GET'])
 def get_bands_by_mask(mask):
     """Returns the list of bands if the band name contains mask parameter"""
     try:
         mask_lower = mask.lower()
-        return jsonify(bands=[e.serialize() for e in bands if e.name.lower().find(mask_lower) != -1])
+        return jsonify(bands=[e.serialize() for e in bands if
+                              e.name.lower().find(mask_lower) != -1])
     except HTTPException:
         raise
 
 
-@app.route('/api/models/<model>/lyrics/<lang>/<length>/<words>/bands/<band>', methods=['GET'])
+@app.route('/baking_api/models/<model>/lyrics/<lang>/<length>/<words>/bands/<band>', methods=['GET'])
 def get_lyrics_by_band(model, lang, length, words, band):
     """
-    Returns a list of the list of <length> words in <lang> using the list of words <words>. Using Current model
+    Returns a list of the list of <length> words in <lang> using the list of words <words>.
+    Using Current model
 
     :param model: model to be used
     :param lang: language of model to use
@@ -114,7 +116,6 @@ def get_lyrics_by_band(model, lang, length, words, band):
         model = str(model)
 
         if not validate_model(model):
-            logger.error("Model not valid: {}".format(model))
             abort(400, "Model not valid: {}".format(model))
 
         model = _valid_models[model]
@@ -124,7 +125,7 @@ def get_lyrics_by_band(model, lang, length, words, band):
         else:
             words = []
 
-        _ModelClass, args = get_model_class(config_parser, model)
+        _ModelClass, args = get_model_class(model)
 
         model_instance = _ModelClass(**args)
         model_instance.__str__()
@@ -136,7 +137,6 @@ def get_lyrics_by_band(model, lang, length, words, band):
         try:
             lyrics = model_instance.generate_sentence(lang, length, 69, words, band)
         except NotImplementedError as e:
-            logger.error("Not implemented error: " + str(e))
             abort(501, "Not implemented error: " + str(model))
 
         return jsonify(lyrics)
@@ -144,10 +144,11 @@ def get_lyrics_by_band(model, lang, length, words, band):
         raise
 
 
-@app.route('/api/models/<model>/lyrics/<lang>/<length>/<words>', methods=['GET'])
+@app.route('/baking_api/models/<model>/lyrics/<lang>/<length>/<words>', methods=['GET'])
 def get_lyrics(model, lang, length, words):
     """
-    Returns a list of the list of <length> words in <lang> using the list of words <words>. Using Current model
+    Returns a list of the list of <length> words in <lang> using the list of words <words>.
+    Using Current model
 
     :param model: model to be used
     :param lang: language of model to use
@@ -163,7 +164,6 @@ def get_lyrics(model, lang, length, words):
         model = str(model)
 
         if not validate_model(model):
-            logger.error("Model not valid: {}".format(model))
             abort(400, "Model not valid: {}".format(model))
 
         model = _valid_models[model]
@@ -173,7 +173,7 @@ def get_lyrics(model, lang, length, words):
         else:
             words = []
 
-        _ModelClass, args = get_model_class(config_parser, model)
+        _ModelClass, args = get_model_class(model)
 
         model_instance = _ModelClass(**args)
         model_instance.__str__()
@@ -185,7 +185,6 @@ def get_lyrics(model, lang, length, words):
         try:
             lyrics = model_instance.generate_sentence(lang, length, 69, words)
         except NotImplementedError as e:
-            logger.error("Not implemented error: " + str(e))
             abort(501, "Not implemented error: " + str(model))
 
         return jsonify(lyrics)
@@ -195,30 +194,35 @@ def get_lyrics(model, lang, length, words):
 
 @app.errorhandler(400)
 def bad_request_error(error):
+    logger.error(str(error))
     error_object = http.HttpHandler(400, error)
     return error_object.return_json_http()
 
 
 @app.errorhandler(404)
 def not_found_error(error):
+    logger.error(str(error))
     error_object = http.HttpHandler(404, error)
     return error_object.return_json_http()
 
 
 @app.errorhandler(500)
 def internal_server_error(error):
+    logger.error(str(error))
     error_object = http.HttpHandler(500, error)
     return error_object.return_json_http()
 
 
 @app.errorhandler(501)
 def not_implemented_error(error):
+    logger.error(str(error))
     error_object = http.HttpHandler(501, error)
     return error_object.return_json_http()
 
 
 @app.errorhandler(503)
 def service_unavailable(error):
+    logger.error(str(error))
     error_object = http.HttpHandler(503, error)
     return error_object.return_json_http()
 
@@ -227,26 +231,24 @@ def validate_model(model_name):
     return model_name in _valid_models
 
 
-def get_model_class(config, model):
+def get_model_class(model):
 
     import importlib
 
-    config.read("./CONFIG.INI")
-    current_model_class = config.get("MODELS", model)
+    current_model_class = app.config[str(model).upper()]
 
     if current_model_class == 'LSTMModel':
 
         args = dict(
-            model_file_path=config.get("LSTMModel", "ModelFilePath"),
-            weights_file_path=config.get("LSTMModel", "WeightsFilePath"),
-            seed_file_path=config.get("LSTMModel", "SeedFilePath")
+            model_file_path=app.config["LSTM_MODEL_FILE_PATH"],
+            weights_file_path=app.config["LSTM_MODEL_WEIGHTS_FILE_PATH"],
+            seed_file_path=app.config["LSTM_MODEL_SEED_FILE_PATH"]
             )
 
-        _ModelClass = getattr(importlib.import_module("ml.ml_abc"), current_model_class)
+        _ModelClass = getattr(importlib.import_module("baking_api.ml_models"), current_model_class)
         return _ModelClass, args
 
     elif current_model_class == 'NGramsModel':
-
         # TODO: Read model args.
         logger.error("Not implemented model class: " + str(current_model_class))
         abort(501, "Not implemented model class: " + str(current_model_class))
@@ -254,26 +256,3 @@ def get_model_class(config, model):
     else:
         logger.error("Not implemented model class: " + str(current_model_class))
         abort(501, "Not implemented model class: " + str(current_model_class))
-
-
-if __name__ == '__main__':
-
-    global logger
-
-    root_dir = os.getcwd()
-
-    timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
-
-    settings = dict(
-        log_dir=r'logs/',
-        log_level=2
-    )
-
-    log_utils.setup_logging('bl-api', timestamp, settings)
-    logger = log_utils.get_logger('bl-api')
-
-    log_utils.print_imports_versions(logger)
-
-    logger.info('Initializing Flask Deamon...')
-
-    app.run(host='127.0.0.1', port=5002)
