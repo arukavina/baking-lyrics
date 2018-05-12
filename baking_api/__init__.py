@@ -2,12 +2,13 @@
 
 import datetime
 
+# Own
 from flask import Flask
-from flask_debugtoolbar import DebugToolbarExtension
-
 from baking_api.util import log_utils
-
-app = Flask(__name__, instance_relative_config=True)
+app = Flask(__name__,
+            instance_relative_config=True,
+            static_folder="static/dist",
+            template_folder="static")
 
 # Load the default configuration
 app.config.from_object('config.default')

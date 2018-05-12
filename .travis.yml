@@ -1,17 +1,17 @@
 language: python
-
 python:
-    - "2.7"
-    - "3.5"
-    - "3.6"
-
-# Dependencies
-install:
-  -pip install -r requirements/dev.txt
-
+  - '3.6'
+install: "-pip install -r requirements/dev.txt"
 script:
   - coverage erase
-  - coverage run test_webapp.py && coverage html
-
+  - coverage run baking_api/views.py && coverage html
 after_success:
   - codecov
+branches:
+  only:
+    - master
+deploy:
+  - provider: heroku
+    api_key:
+      secure: gplrfILrr3/g+FVIyjkYImncsyPO4OGO2AYrBgQwCaUa720/f8NmRTMSYR5bB4c71hHwrKymb9g35px3FqIS+khbeGxl72zeSq0wUl6ZC5qJ8krTF6QF16seaS4ZkbGSXmxhTWz9ujLCf9pQe1exmBz6aoZjJ/jV/8RxzJKuizEFtKif5xtBLlc5wL7NkG+MnXYENHja1NnTg4YRZKuE1oItrF4l5DnHulBNp3E34oQK9MHQAt12XQhmiq3cOiSXdGbktLK7jBKONJ8o2ItA1DtsbU5zAFUoG1TW1WLlddqNkh50t5qlV+RArvgXZuNg6abaeTf/uNVi4565MeoV2UOYg7dVLboy2g+VVjReV19rRJFiPowxnhmB7FROvq9cmRFr0BpMHoHhSpLUa2Y285gskjeQ9FE7nEu2Vghok0ot9/Nqm7AG00c7FeuaBDJ5mom1CW4WQFw2ppfPFprrc0UStArO+rM3WtLUfQD73ek09vz57ku/3Q4HNz33f140fw+exnYSI87H+X3zOr99G77nylhyi8seoPEt+NzfnNhFOJ+Jc2UXFHl2vBgnt2OVWrSmAMmpl1HDK8dSFajaC5JgNbQ0km0Bp4zqOqdQz+JvfrTnJVPBiTKzGxKlbwflmMX+JpB14CnvKKF7cq6wJ251ks0geXSVm8RTnX1Wk+o=
+    app: baking-lyrics
