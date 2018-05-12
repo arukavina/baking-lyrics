@@ -98,7 +98,7 @@ class NGramsModel(Model):
         pprint(vars(self))
 
 
-class LSTMModel(Model):
+class LyricsLSTMModel(Model):
     def __init__(self, model_file_path, weights_file_path, seed_file_path="../data/martin-fierro.txt"):
 
         logger.info('Checking if "weights_file_path" is a valid path: {}'.format(weights_file_path))
@@ -200,11 +200,11 @@ class LSTMModel(Model):
 
         full_string = [self.n_to_char()[value] for value in string_mapped]
 
-        txt = ''
+        g_txt = ''
         for char in full_string:
-            txt = txt + char
+            g_txt = g_txt + char
 
-        logger.info('Base: \n{}'.format(txt))
+        logger.info('Base: \n{}'.format(g_txt))
 
         full_string = []
 
@@ -227,13 +227,13 @@ class LSTMModel(Model):
             string_mapped = string_mapped[1:len(string_mapped)]
 
         # Merging results
-        txt = ''
+        g_txt = ''
         for char in full_string:
-            txt = txt + char
+            g_txt = g_txt + char
 
-        logger.info('Generated: {}'.format(txt))
+        logger.info('Generated: {}'.format(g_txt))
 
-        return txt
+        return g_txt
 
     def __str__(self):
         from pprint import pprint
@@ -244,6 +244,50 @@ class LSTMModel(Model):
 
     def char_to_n(self):
         return {char: n for n, char in enumerate(self.characters)}
+
+
+class TitleLSTMModel(Model):
+    def __init__(self, model_file_path, tokenizer_file_path):
+
+        logger.info('Checking if "tokenizer_file_path" is a valid path: {}'.format(tokenizer_file_path))
+        if not os.path.exists(tokenizer_file_path):
+            logger.error("[{}] is not a valid path".format(tokenizer_file_path))
+            raise IOError()
+
+        super().__init__(model_file_path)
+
+        self.tokenizer_file_path = tokenizer_file_path
+
+        self.text = None
+        self.characters = None
+        self.length = None
+
+    def load_model(self):
+
+        self.text = self.text.lower().strip()
+        self.characters = sorted(list(set(self.text)))
+        self.length = len(self.text)
+
+        logger.info("Characters V: {}".format(self.characters))
+        logger.info("Text length: {}".format(self.length))
+
+        # Load YAML and create model
+        logger.info("Loading model...")
+
+        # TODO: Sergio.
+
+        self.model = None
+        self.model_loaded = True
+        logger.info("Loaded model from disk")
+
+    def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
+
+        g_txt = range(1, length)
+        return g_txt
+
+    def __str__(self):
+        from pprint import pprint
+        pprint(vars(self))
 
 
 if __name__ == '__main__':
@@ -260,7 +304,7 @@ if __name__ == '__main__':
 
     logger.info(os.getcwd())
 
-    a = LSTMModel(
+    a = LyricsLSTMModel(
         model_file_path='../data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_model.yaml',
         weights_file_path='../data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_weights.h5'
     )
