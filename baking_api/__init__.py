@@ -5,8 +5,6 @@ import datetime
 # Own
 from flask import Flask
 from baking_api.util import log_utils
-from baking_api.ml_models import Model
-
 app = Flask(__name__,
             instance_relative_config=True,
             static_folder="static/dist",
@@ -23,11 +21,6 @@ app.config.from_pyfile('config.py')
 app.config.from_envvar('APP_CONFIG_FILE')
 
 TS = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
-
-# Global Objects:
-bands = []
-current_lyrics_model = Model()
-current_title_model = Model()
 
 log_utils.setup_logging('baking_api', TS, app.config)
 logger = log_utils.get_logger('baking_api')

@@ -8,12 +8,12 @@ LOG_LEVEL = 2
 BANDS_PATH = r'./resources/Bands.json'
 
 # Current
-CURRENT_MODEL_LYRICS = r'LyricsLSTMModel'
+CURRENT_MODEL_LYRICS = r'LYRICS_LSTM_MODEL'
 CURRENT_MODEL_TITLE = r'TitleLSSTMMModel'
 
 # Lyrics
-LSTM_MODEL = r'LSTMModel'
-NGRAMS_MODEL = r'NGramsModel'
+LYRICS_LSTM_MODEL = r'LyricsLSTMModel'
+NGRAMS_LSTM_MODEL = r'NGramsModel'
 
 # Lyrics - LSTM
 LYRICS_LSTM_MODEL_FILE_PATH = r'data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_model.yaml'
@@ -24,5 +24,8 @@ LYRICS_LSTM_SEED_FILE_PATH = r'data/martin-fierro.txt'
 LYRICS_NGRAM_MODEL_FILE_PATH = r'data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_model.yaml'
 
 # Title
+TITLE_LSTM_MODEL = r'TitleLSSTMMModel'
+
+# Title - LSTM
 TITLE_LSTM_MODEL_FILE_PATH = ""
 TITLE_LSTM_TOKENIZER_FILE_PATH = ""
