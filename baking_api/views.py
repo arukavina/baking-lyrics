@@ -17,8 +17,16 @@ from werkzeug.exceptions import HTTPException
 # Own
 from baking_api import app
 from baking_api.models import Band
-from baking_api.helpers import http_handler as http
 from baking_api.util import log_utils
+from baking_api.helpers import http_handler as http
+
+# Global Objects:
+
+bands = []
+current_lyrics_model = None
+current_title_model = None
+current_lyrics_model_name = None
+current_title_model_name = None
 
 _valid_models = {
     'current': 'Current_Model',
@@ -26,19 +34,20 @@ _valid_models = {
     'ngrams': 'NGramsModel'
 }
 
-logger = app.logger
+logger = log_utils.get_logger('baking_api')
 
 
 @app.before_first_request
 def load_bands():
     """Loads available bands in json file on memory"""
+    logger.info("Loading Bands..")
     try:
         json_data = open(app.config["BANDS_PATH"]).read()
         data = json.loads(json_data)
         for value in data["bands"]:
             band = Band()
             band.set_data(value)
-            app.bands.append(band)
+            bands.append(band)
         logger.info("Bands loaded in memory")
     except FileNotFoundError as e:
         abort(500, "Config file or bands file doesn't exist: " + str(e))
@@ -54,14 +63,22 @@ def load_current_models():
     lyrics_model = app.config["CURRENT_MODEL_LYRICS"]
     title_model = app.config["CURRENT_MODEL_TITLE"]
 
+    global current_lyrics_model
+    global current_title_model
+    global current_lyrics_model_name
+    global current_title_model_name
+
     _ModelClass_lyrics, args_lyrics = get_model_class(lyrics_model)
-    _ModelClass_title, args_title = get_model_class(lyrics_model)
+    _ModelClass_title, args_title = get_model_class(title_model)
 
-    app.current_lyrics_model = _ModelClass_lyrics(**args_lyrics)
-    app.current_title_model = _ModelClass_title(**args_title)
+    current_lyrics_model = _ModelClass_lyrics(**args_lyrics)
+    current_title_model = _ModelClass_title(**args_title)
 
-    app.current_lyrics_model.__str__()
-    app.current_title_model.__str__()
+    current_lyrics_model.__str__()
+    current_title_model.__str__()
+
+    current_lyrics_model_name = lyrics_model
+    current_title_model_name = lyrics_model
 
     logger.info("{} lyrics_model initialized correctly!".format(lyrics_model))
     logger.info("{} title_model initialized correctly!".format(title_model))
@@ -109,7 +126,7 @@ def get_all_bands():
     """
     ""
     try:
-        return jsonify(bands=[e.serialize() for e in app.bands])
+        return jsonify(bands=[e.serialize() for e in bands])
     except HTTPException:
         raise
 
@@ -119,7 +136,7 @@ def get_bands_by_mask(mask):
     """Returns the list of bands if the band name contains mask parameter"""
     try:
         mask_lower = mask.lower()
-        return jsonify(bands=[e.serialize() for e in app.bands if
+        return jsonify(bands=[e.serialize() for e in bands if
                               e.name.lower().find(mask_lower) != -1])
     except HTTPException:
         raise
@@ -187,33 +204,58 @@ def get_lyrics(model, lang, length, words):
     :return: string
 
     """
+
+    global current_lyrics_model
+    global current_title_model
+    global current_lyrics_model_name
+    global current_title_model_name
+
     try:
         lang = lang.lower()
         length = int(length)
         words = str(words)
         model = str(model)
 
-        if not validate_model(model):
-            abort(400, "Model not valid: {}".format(model))
-
-        model = _valid_models[model]
-
         if words is not None:
             words = str(words).split(' ')
         else:
             words = []
 
-        _ModelClass, args = get_model_class(model)
+        # Handling models
+        if not validate_model(model):
+            abort(400, "Model not valid: {}".format(model))
 
-        model_instance = _ModelClass(**args)
-        model_instance.__str__()
+        if model == 'current':
+            logger.info("Using cached default models...")
 
-        logger.info("{} model initialized correctly".format(model))
+            current_lyrics_model.__str__()
+            current_title_model.__str__()
+
+        elif model == current_lyrics_model_name:
+            logger.info("Using cached models...")
+
+            current_lyrics_model.__str__()
+            current_title_model.__str__()
+
+        else:
+
+            logger.info("Loading {} model...".format(model))
+
+            current_lyrics_model_name = model
+
+            model = _valid_models[model]
+
+            _ModelClass, args = get_model_class(model)
+
+            current_lyrics_model = _ModelClass(**args)
+            current_lyrics_model.__str__()
+
+            logger.info("{} lyrics model initialized correctly".format(current_lyrics_model))
 
         lyrics = ""
 
         try:
-            lyrics = model_instance.generate_sentence(lang, length, 69, words)
+            lyrics = current_lyrics_model.generate_sentence(lang, length, 69, words)
         except NotImplementedError:
             abort(501, "Not implemented error: " + str(model))
 
@@ -233,7 +275,7 @@ def bad_request_error(error):
 def not_found_error(error):
     logger.error(str(error))
     error_object = http.HttpHandler(404, error)
-    return error_object.return_json_http(),error_object.code
+    return error_object.return_json_http(), error_object.code
 
 
 @app.errorhandler(500)
@@ -248,8 +290,6 @@ def not_implemented_error(error):
     logger.error(str(error))
     error_object = http.HttpHandler(501, error)
     return error_object.return_json_http(), error_object.code
-
-
 
 
 @app.errorhandler(503)
@@ -278,8 +318,8 @@ def get_model_class(model):
 
         args = dict(
             model_file_path=app.config["LYRICS_LSTM_MODEL_FILE_PATH"],
-            weights_file_path=app.config["LYRICS_LSTM_LSTM_MODEL_WEIGHTS_FILE_PATH"],
-            seed_file_path=app.config["LYRICS_LSTM_LSTM_MODEL_SEED_FILE_PATH"]
+            weights_file_path=app.config["LYRICS_LSTM_WEIGHTS_FILE_PATH"],
+            seed_file_path=app.config["LYRICS_LSTM_SEED_FILE_PATH"]
             )
 
         _ModelClass = getattr(importlib.import_module("baking_api.ml_models"), current_model_class)
