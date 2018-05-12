@@ -5,19 +5,20 @@ Flask End-Point
 
 # Generic
 import json
+import random
 
+# Libs
 from flask import abort
 from flask import jsonify
 from flask import request
+from flask import render_template
 from werkzeug.exceptions import HTTPException
 
+# Own
 from baking_api import app
 from baking_api.models import Band
 from baking_api.helpers import http_handler as http
 from baking_api.util import log_utils
-
-
-bands = []
 
 _valid_models = {
     'current': 'Current_Model',
@@ -25,7 +26,7 @@ _valid_models = {
     'ngrams': 'NGramsModel'
 }
 
-logger = log_utils.get_logger('baking_api')
+logger = app.logger
 
 
 @app.before_first_request
@@ -37,7 +38,7 @@ def load_bands():
         for value in data["bands"]:
             band = Band()
             band.set_data(value)
-            bands.append(band)
+            app.bands.append(band)
         logger.info("Bands loaded in memory")
     except FileNotFoundError as e:
         abort(500, "Config file or bands file doesn't exist: " + str(e))
@@ -45,6 +46,25 @@ def load_bands():
         abort(500, "Json decoding for Bands file has failed: " + str(e))
     except Exception as e:
         abort(500, "Unknown exception while parsing Bands file: " + str(e))
+
+
+@app.before_first_request
+def load_current_models():
+
+    lyrics_model = app.config["CURRENT_MODEL_LYRICS"]
+    title_model = app.config["CURRENT_MODEL_TITLE"]
+
+    _ModelClass_lyrics, args_lyrics = get_model_class(lyrics_model)
+    _ModelClass_title, args_title = get_model_class(lyrics_model)
+
+    app.current_lyrics_model = _ModelClass_lyrics(**args_lyrics)
+    app.current_title_model = _ModelClass_title(**args_title)
+
+    app.current_lyrics_model.__str__()
+    app.current_title_model.__str__()
+
+    logger.info("{} lyrics_model initialized correctly!".format(lyrics_model))
+    logger.info("{} title_model initialized correctly!".format(title_model))
 
 
 @app.before_request
@@ -56,6 +76,16 @@ def before_request():
     for key in request.values:
         values += '{}: {}, '.format(key, request.values[key])
     logger.info(values)
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/hello")
+def hello():
+    return get_hello()
 
 
 @app.route('/baking_api/refresh_bands/', methods=['GET'])
@@ -79,7 +109,7 @@ def get_all_bands():
     """
     ""
     try:
-        return jsonify(bands=[e.serialize() for e in bands])
+        return jsonify(bands=[e.serialize() for e in app.bands])
     except HTTPException:
         raise
 
@@ -89,7 +119,7 @@ def get_bands_by_mask(mask):
     """Returns the list of bands if the band name contains mask parameter"""
     try:
         mask_lower = mask.lower()
-        return jsonify(bands=[e.serialize() for e in bands if
+        return jsonify(bands=[e.serialize() for e in app.bands if
                               e.name.lower().find(mask_lower) != -1])
     except HTTPException:
         raise
@@ -160,7 +190,7 @@ def get_lyrics(model, lang, length, words):
     try:
         lang = lang.lower()
         length = int(length)
-        words = str(words).split(' ')
+        words = str(words)
         model = str(model)
 
         if not validate_model(model):
@@ -184,7 +214,7 @@ def get_lyrics(model, lang, length, words):
 
         try:
             lyrics = model_instance.generate_sentence(lang, length, 69, words)
-        except NotImplementedError as e:
+        except NotImplementedError:
             abort(501, "Not implemented error: " + str(model))
 
         return jsonify(lyrics)
@@ -233,28 +263,40 @@ def validate_model(model_name):
     return model_name in _valid_models
 
 
+def get_hello():
+    greeting_list = ['Ciao', 'Hei', 'Salut', 'Hola', 'Hallo', 'Hej']
+    return random.choice(greeting_list)
+
+
 def get_model_class(model):
 
     import importlib
 
     current_model_class = app.config[str(model).upper()]
 
-    if current_model_class == 'LSTMModel':
+    if current_model_class == 'LyricsLSTMModel':
 
         args = dict(
-            model_file_path=app.config["LSTM_MODEL_FILE_PATH"],
-            weights_file_path=app.config["LSTM_MODEL_WEIGHTS_FILE_PATH"],
-            seed_file_path=app.config["LSTM_MODEL_SEED_FILE_PATH"]
+            model_file_path=app.config["LYRICS_LSTM_MODEL_FILE_PATH"],
+            weights_file_path=app.config["LYRICS_LSTM_LSTM_MODEL_WEIGHTS_FILE_PATH"],
+            seed_file_path=app.config["LYRICS_LSTM_LSTM_MODEL_SEED_FILE_PATH"]
             )
 
         _ModelClass = getattr(importlib.import_module("baking_api.ml_models"), current_model_class)
         return _ModelClass, args
 
+    elif current_model_class == 'TitleLSSTMMModel':
+
+        args = dict(
+            model_file_path=app.config["TITLE_LSTM_MODEL_FILE_PATH"],
+            tokenizer_file_path=app.config["TITLE_LSTM_TOKENIZER_FILE_PATH"]
+        )
+
+        _ModelClass = getattr(importlib.import_module("baking_api.ml_models"), current_model_class)
+        return _ModelClass, args
+
     elif current_model_class == 'NGramsModel':
-        # TODO: Read model args.
-        logger.error("Not implemented model class: " + str(current_model_class))
         abort(501, "Not implemented model class: " + str(current_model_class))
 
     else:
-        logger.error("Not implemented model class: " + str(current_model_class))
         abort(501, "Not implemented model class: " + str(current_model_class))

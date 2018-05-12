@@ -98,7 +98,7 @@ class NGramsModel(Model):
         pprint(vars(self))
 
 
-class LSTMModel(Model):
+class LyricsLSTMModel(Model):
     def __init__(self, model_file_path, weights_file_path, seed_file_path="../data/martin-fierro.txt"):
 
         logger.info('Checking if "weights_file_path" is a valid path: {}'.format(weights_file_path))
@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
     logger.info(os.getcwd())
 
-    a = LSTMModel(
+    a = LyricsLSTMModel(
         model_file_path='../data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_model.yaml',
         weights_file_path='../data/models/lstm/text_generator_700_0.2_700_0.2_700_0.2_100_big_weights.h5'
     )

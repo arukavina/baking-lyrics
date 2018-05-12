@@ -130,3 +130,4 @@ xml2docx/.idea/xml2docx.iml
 
 *.h5
 .pytest_cache/
+/baking_api/static/node_modules/
