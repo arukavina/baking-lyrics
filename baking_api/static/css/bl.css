@@ -1,0 +1,41 @@
+.page-header {
+    min-height: 100%;
+    text-align: center;
+    background-image: url('../images/header.jpg');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    margin-top: -15px;
+}
+.header-contents {
+    top: 50%;
+    position:absolute;
+}
+.header-contents h1 {
+    font-size: 120px;
+    font-weight: 300;
+}
+.header-contents button {
+    font-size: 35px;
+    border-radius: 30px;
+    font-weight: 300;
+}
+
+.header-contents button:focus {
+    outline: None;
+}
+
+.wrapper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-gap: 10px;
+  grid-auto-rows: 200px;
+  grid-template-areas:
+    ". a a ."
+    ". a a .";
+}
+.item1 {
+  grid-area: a;
+  align-self: center;
+  justify-self: center;
+}
