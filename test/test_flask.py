@@ -8,7 +8,6 @@ import tempfile
 @pytest.fixture(scope='module')
 def test_client():
     testing_client = app.test_client()
-
     # Establish an application context before running the tests.
     ctx = app.app_context()
     ctx.push()

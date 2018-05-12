@@ -17,5 +17,5 @@ class HttpHandler:
 
     def return_json_http(self):
         """return a json with the object structure"""
-        d = {'status': self.code, 'message': str(self.message)}
+        d = {'status-code': self.code, 'message': str(self.message)}
         return jsonify(d)
