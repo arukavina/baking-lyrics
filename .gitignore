@@ -57,7 +57,7 @@ coverage.xml
 local_settings.py
 
 # Flask stuff:
-instance/
+api/instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -102,4 +102,6 @@ ENV/
 *.h5
 
 .pytest_cache/
-/baking_api/static/node_modules/
+/api/static/node_modules/
+docs/source/_static/
+docs/source/_templates/
