@@ -1,4 +1,5 @@
 ENV = 'production'
+SERVER_NAME = 'bakinglyrics.com'
 DEBUG = False
 SQLALCHEMY_ECHO = False
 TESTING = False
