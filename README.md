@@ -5,8 +5,8 @@ Baking Lyrics
 
 Coverage | Travis | Python Lint
 --- | --- | ---
-*Still* | `renders` | **nicely**
-1 | 2 | 3
+ |  |
+ |  |
 
 # Intro
 
@@ -27,15 +27,15 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - Create a python venv in your SO
 - Source it: `source bar/foo/venv/your-venv/bin/activate`
 - Run `pip install -r requirements/dev.txt`
-- Create the instance foler in the root dir and add a file named: config.py under it.
+- Create the instance folder in the `api` dir and add a file named: config.py under it.
 - Add the following content to to it:
 ```python
 SECRET_KEY = 'Sm9obiBTY2hyb20ga2lja3MgYXNz'
 STRIPE_API_KEY = 'SmFjb2IgS2FwbGFuLU1vc3MgaXMgYSBoZXJv'
 ```
 - Request the current models to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
-- Put the file under: `/api/resources/` & `/api/data/models`
-- Add the following ENV variable into your favourite OS: `APP_CONFIG_FILE=/Users/arukavina/GitHub/Baking-Lyrics/config/development.py`
+- Put the file under: `/api/resources/`
+- Add the following ENV variable into your favourite OS: `APP_CONFIG_FILE=/Users/<your name>/GitHub/Baking-Lyrics/config/development.py`
 - Run /run.py
 
 # Models
