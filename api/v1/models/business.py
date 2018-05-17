@@ -6,23 +6,25 @@ from api.database.models import Band, Genre, Lyric
 def create_lyric(data):
     title = data.get('title')
     body = data.get('body')
+    pub_date = data.get('pub_date')
     band_id = data.get('band_id')
     band = Band.query.filter(Band.id == band_id).one()
     band.country = data.get('country')
 
-    post = Lyric(title, body, band)
-    db.session.add(post)
+    lyric = Lyric(title, body, band, pub_date)
+    db.session.add(lyric)
     db.session.commit()
 
 
 def create_band(data):
     name = data.get('name')
     country = data.get('country')
+    pub_date = data.get('pub_date')
     genre_id = data.get('genre_id')
-    category = Genre.query.filter(Genre.id == genre_id).one()
+    genre = Genre.query.filter(Genre.id == genre_id).one()
 
-    post = Band(name, country, category)
-    db.session.add(post)
+    band = Band(name, country, genre, pub_date)
+    db.session.add(band)
     db.session.commit()
 
 

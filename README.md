@@ -30,8 +30,8 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - Create the instance folder in the `api` dir and add a file named: config.py under it.
 - Add the following content to to it:
 ```python
-SECRET_KEY = 'Sm9obiBTY2hyb20ga2lja3MgYXNz'
-STRIPE_API_KEY = 'SmFjb2IgS2FwbGFuLU1vc3MgaXMgYSBoZXJv'
+SECRET_KEY = ''
+STRIPE_API_KEY = ''
 ```
 - Request the current models to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
 - Put the file under: `/api/resources/`

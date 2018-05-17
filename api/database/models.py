@@ -12,7 +12,7 @@ class Lyric(db.Model):
     band_id = db.Column(db.Integer, db.ForeignKey('band.id'))
     band = db.relationship('Band', backref=db.backref('lyric', lazy='dynamic'))
 
-    def __init__(self, title, body, band, pub_date):
+    def __init__(self, title, body, band, pub_date=None):
         self.title = title
         self.body = body
         self.band = band
@@ -33,7 +33,7 @@ class Band(db.Model):
     genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
     genre = db.relationship('Genre', backref=db.backref('bands', lazy='dynamic'))
 
-    def __init__(self, name, pub_date, country, genre):
+    def __init__(self, name, country, genre, pub_date=None):
         self.name = name
         self.country = country
 

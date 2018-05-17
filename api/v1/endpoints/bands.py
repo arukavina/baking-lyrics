@@ -5,12 +5,12 @@ from flask import request
 from flask_restplus import Resource
 
 from api.database.models import Band
-from api.v1.business import create_band, update_band, delete_band
+from api.v1.models.business import create_band, update_band, delete_band
 from api.v1.parsers import pagination_arguments
 from api.v1.restplus import api
 from api.v1.serializers import band, page_of_bands
 
-log = logging.getLogger('baking-lyrics')
+logger = logging.getLogger('baking-lyrics')
 
 ns = api.namespace('bands', description='Operations related to bands')
 
@@ -34,9 +34,9 @@ class BandsCollection(Resource):
         return bands_page
 
     @api.expect(band)
-    def band(self):
+    def post(self):
         """
-        Creates a new band band.
+        Creates a new band.
         """
         create_band(request.json)
         return None, 201

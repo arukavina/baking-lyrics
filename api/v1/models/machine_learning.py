@@ -18,7 +18,7 @@ class Model(object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self, model_file_path):
 
-        logger.info('Checking if "model" is a valid path: {}'.format(model_file_path))
+        logger.info('Checking if "models" is a valid path: {}'.format(model_file_path))
         if not os.path.exists(model_file_path):
             logger.error("[{}] is not a valid path".format(model_file_path))
             raise IOError()
@@ -75,7 +75,7 @@ class NGramsModel(Model):
         self.model = loaded_model
         self.model_loaded = True
 
-        logger.info("Loaded model from disk")
+        logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
 
@@ -131,8 +131,8 @@ class LyricsLSTMModel(Model):
         logger.info("Characters V: {}".format(self.characters))
         logger.info("Text length: {}".format(self.length))
 
-        # Load YAML and create model
-        logger.info("Loading model...")
+        # Load YAML and create models
+        logger.info("Loading models...")
 
         try:
             yaml_file = open(self.model_file_path, 'r')
@@ -141,19 +141,19 @@ class LyricsLSTMModel(Model):
 
             loaded_model = model_from_yaml(loaded_model_yaml)
         except IOError as e:
-            logger.error("Is not possible to load Keras model")
+            logger.error("Is not possible to load Keras models")
             raise e
         except ImportError as e:
             logger.error("Missing dependency")
             raise e
 
-        # Load weights into new model
-        logger.info("Loading weights into new model...")
+        # Load weights into new models
+        logger.info("Loading weights into new models...")
 
         try:
             loaded_model.load_weights(self.weights_file_path)
         except IOError as e:
-            logger.error("Is not possible to load weights into Keras model")
+            logger.error("Is not possible to load weights into Keras models")
             raise e
         except ImportError as e:
             logger.error("Missing dependency")
@@ -161,7 +161,7 @@ class LyricsLSTMModel(Model):
 
         self.model = loaded_model
         self.model_loaded = True
-        logger.info("Loaded model from disk")
+        logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
 
@@ -271,14 +271,14 @@ class TitleLSTMModel(Model):
         logger.info("Characters V: {}".format(self.characters))
         logger.info("Text length: {}".format(self.length))
 
-        # Load YAML and create model
-        logger.info("Loading model...")
+        # Load YAML and create models
+        logger.info("Loading models...")
 
         # TODO: Sergio.
 
         self.model = None
         self.model_loaded = True
-        logger.info("Loaded model from disk")
+        logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
 
