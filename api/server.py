@@ -10,9 +10,9 @@ from flask import render_template
 
 # Own
 from api.util import log_utils
-from api.v1.endpoints.bands import ns as bands_namespace
+from api.v1.endpoints.artists import ns as bands_namespace
 from api.v1.endpoints.genres import ns as genres_namespace
-from api.v1.endpoints.lyrics import ns as lyrics_namespace
+from api.v1.endpoints.songs import ns as lyrics_namespace
 from api.v1.endpoints.titles import ns as titles_namespace
 from api.database import db
 from api.v1.restplus import api
@@ -72,28 +72,6 @@ def get_random_lyric():
     return random.choice(greeting_list)
 
 
-def insert_initial_values():
-    from api.database.models import Genre, Band, Lyric
-
-    db.session.add(Genre(name='Rock'))
-    db.session.add(Genre(name='Soul'))
-
-    db.session.add(Band(name="Metallica", country="US", pub_date=datetime.date(1987, 12, 5), genre=Genre(name='Heavy Metal')))
-    db.session.add(Lyric(title="Start a Fire",
-                         body="US",
-                         pub_date=datetime.date(2016, 12, 5),
-                         band=Band(
-                             name="John Legend",
-                             country="US",
-                             pub_date=datetime.date(1987, 12, 5),
-                             genre=Genre(
-                                 name='Pop')
-                             )
-                         )
-                   )
-    db.session.commit()
-
-
 def main():
 
     limiter.init_app(app)
@@ -110,9 +88,6 @@ def main():
 
     db.init_app(app)
     app.app_context().push()
-    db.drop_all()
-    db.create_all()
-    insert_initial_values()
 
     print(app.url_map)
 

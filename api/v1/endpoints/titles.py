@@ -11,7 +11,7 @@ from flask_restplus import abort
 # Own
 from api.v1.restplus import api
 from api.v1.serializers import title
-from api.database.models import Lyric
+from api.database.models import Song
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('titles', description='Operations related to the titles generation')
@@ -31,7 +31,7 @@ class TitleCollection(Resource):
         """
         Returns list of titles
         """
-        titles = dict(body="let it be", lyrics=Lyric.query.filter(Lyric.id == 1).one())
+        titles = dict(body="let it be", lyrics=Song.query.filter(Song.id == 1).one())
         return titles
 
     @ns.response(201, 'Title successfully created.')
@@ -41,12 +41,12 @@ class TitleCollection(Resource):
         Creates a new title.
         """
         data = request.json
-        create_title(data)
+        # create_title(data)
         return None, 201
 
 
 @ns.route('/generate/<lang>/lyrics/<int:lyric_id>/')
-@ns.response(404, 'Lyric not found.')
+@ns.response(404, 'Song not found.')
 @ns.response(500, 'Internal server error.')
 class TitleItem(Resource):
 
@@ -55,4 +55,4 @@ class TitleItem(Resource):
         """
         Returns a generated title for the required lyric id.
         """
-        return "" # Title.query.filter(Lyric.id == lyric_id).one()
+        return "" # Title.query.filter(Song.id == lyric_id).one()
