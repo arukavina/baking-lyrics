@@ -1,46 +1,46 @@
 # Own
 from api.database import db
-from api.database.models import Band, Genre, Lyric
+from api.database.models import Artist, Genre, Song
 
 
-def create_lyric(data):
+def create_song(data):
     title = data.get('title')
-    body = data.get('body')
+    lyrics = data.get('body')
     pub_date = data.get('pub_date')
-    band_id = data.get('band_id')
-    band = Band.query.filter(Band.id == band_id).one()
-    band.country = data.get('country')
+    artist_id = data.get('artist_id')
+    artist = Artist.query.filter(Artist.id == artist_id).one()
+    artist.country = data.get('country')
 
-    lyric = Lyric(title, body, band, pub_date)
-    db.session.add(lyric)
+    song = Song(title, lyrics, artist, pub_date)
+    db.session.add(song)
     db.session.commit()
 
 
-def create_band(data):
+def create_artist(data):
     name = data.get('name')
     country = data.get('country')
     pub_date = data.get('pub_date')
     genre_id = data.get('genre_id')
     genre = Genre.query.filter(Genre.id == genre_id).one()
 
-    band = Band(name, country, genre, pub_date)
-    db.session.add(band)
+    artist = Artist(name, country, genre, pub_date)
+    db.session.add(artist)
     db.session.commit()
 
 
-def update_band(band_id, data):
-    band = Band.query.filter(Band.id == band_id).one()
-    band.name = data.get('name')
-    band.country = data.get('country')
+def update_artist(artist_id, data):
+    artist = Artist.query.filter(Artist.id == artist_id).one()
+    artist.name = data.get('name')
+    artist.country = data.get('country')
     genre_id = data.get('genre_id')
-    band.genre = Genre.query.filter(Genre.id == genre_id).one()
+    artist.genre = Genre.query.filter(Genre.id == genre_id).one()
 
-    db.session.add(band)
+    db.session.add(artist)
     db.session.commit()
 
 
-def delete_band(band_id):
-    post = Band.query.filter(Band.id == band_id).one()
+def delete_artist(artist_id):
+    post = Artist.query.filter(Artist.id == artist_id).one()
     db.session.delete(post)
     db.session.commit()
 

@@ -2,10 +2,10 @@ from flask_restplus import fields
 
 from api.v1.restplus import api
 
-band = api.model('Band', {
-    'id': fields.Integer(readOnly=True, description='The unique identifier of a band'),
-    'name': fields.String(required=True, description='Band name'),
-    'country': fields.String(required=True, description='Band\'s origin country'),
+artist = api.model('Artist', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of a artist'),
+    'name': fields.String(required=True, description='Artist name'),
+    'country': fields.String(required=True, description='Artist\'s origin country'),
     'pub_date': fields.DateTime,
     'genre': fields.String(attribute='genre.name'),
 })
@@ -17,8 +17,8 @@ pagination = api.model('A page of results', {
     'total': fields.Integer(description='Total number of results'),
 })
 
-page_of_bands = api.inherit('Page of bands', pagination, {
-    'items': fields.List(fields.Nested(band))
+page_of_artists = api.inherit('Page of artists', pagination, {
+    'items': fields.List(fields.Nested(artist))
 })
 
 genre = api.model('Genre', {
@@ -26,19 +26,19 @@ genre = api.model('Genre', {
     'name': fields.String(required=True, description='Genre name'),
 })
 
-genres_with_bands = api.inherit('Genres with bands', genre, {
-    'bands': fields.List(fields.Nested(band))
+genres_with_artists = api.inherit('Genres with artists', genre, {
+    'artists': fields.List(fields.Nested(artist))
 })
 
-lyric = api.model('Lyric', {
-    'id': fields.Integer(readOnly=True, description='The unique identifier of a lyric'),
-    'title': fields.String(required=True, description='Lyric title'),
-    'body': fields.String(required=True, description='Lyric body'),
+song = api.model('Song', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of a song'),
+    'title': fields.String(required=True, description='Song title'),
+    'lyrics': fields.String(required=True, description='Song lyrics'),
     'pub_date': fields.DateTime,
-    'band': fields.List(fields.Nested(band)),
+    'artist': fields.List(fields.Nested(artist)),
 })
 
 title = api.model('Title', {
     'body': fields.String(required=True, description='Generated Title'),
-    'lyric': fields.List(fields.Nested(lyric)),
+    'song': fields.List(fields.Nested(song)),
 })
