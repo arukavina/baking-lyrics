@@ -37,3 +37,8 @@ lyric = api.model('Lyric', {
     'pub_date': fields.DateTime,
     'band': fields.List(fields.Nested(band)),
 })
+
+title = api.model('Title', {
+    'body': fields.String(required=True, description='Generated Title'),
+    'lyric': fields.List(fields.Nested(lyric)),
+})

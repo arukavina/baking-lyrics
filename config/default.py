@@ -1,5 +1,6 @@
 # Flask settings
 DEBUG = False
+FLASK_DEBUG = False
 
 # Flask-Restplus settings
 RESTPLUS_SWAGGER_UI_DOC_EXPANSION = 'list'

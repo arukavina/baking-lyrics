@@ -13,9 +13,11 @@ from api.util import log_utils
 from api.v1.endpoints.bands import ns as bands_namespace
 from api.v1.endpoints.genres import ns as genres_namespace
 from api.v1.endpoints.lyrics import ns as lyrics_namespace
+from api.v1.endpoints.titles import ns as titles_namespace
 from api.database import db
 from api.v1.restplus import api
 from api.v1.restplus import limiter
+# import api.v1.errors
 
 app = Flask(__name__,
             instance_relative_config=True,
@@ -41,7 +43,7 @@ log_utils.setup_logging('baking-api', time_stamp, app.config)
 logger = log_utils.get_logger('baking-api')
 log_utils.print_imports_versions(logger)
 
-logger.info('Starting {} server at http://{}:5000/api/'.format(app.config['ENV'], app.config['SERVER_NAME']))
+logger.info('Starting {} server at http://{}:5000/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME']))
 
 
 @app.route("/ping")
@@ -68,7 +70,6 @@ def get_random_lyric():
     """
     greeting_list = ['Ciao', 'Hei', 'Salut', 'Hola', 'Hallo', 'Hej']
     return random.choice(greeting_list)
-
 
 
 def insert_initial_values():
@@ -103,6 +104,7 @@ def main():
     api.add_namespace(bands_namespace)
     api.add_namespace(genres_namespace)
     api.add_namespace(lyrics_namespace)
+    api.add_namespace(titles_namespace)
 
     app.register_blueprint(blueprint)
 
@@ -115,6 +117,7 @@ def main():
     print(app.url_map)
 
     app.run(debug=app.config['DEBUG'], use_reloader=False)
+
 
 if __name__ == "__main__":
     main()
