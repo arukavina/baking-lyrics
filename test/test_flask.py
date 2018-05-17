@@ -1,15 +1,13 @@
-import os
-from baking_api import app
 import pytest
-import unittest
-import tempfile
+
+from api.v1 import restplus
 
 
 @pytest.fixture(scope='module')
 def test_client():
-    testing_client = app.test_client()
+    testing_client = restplus.test_client()
     # Establish an application context before running the tests.
-    ctx = app.app_context()
+    ctx = restplus.app_context()
     ctx.push()
 
     yield testing_client  # this is where the testing happens!
