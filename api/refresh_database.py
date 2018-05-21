@@ -41,7 +41,7 @@ for i, song in song_data.iterrows():
     except NoResultFound:
         artist = Artist(name=song['artist'],
                         country="US",
-                        pub_date=datetime.date(1987, 12, 5),
+                        formation_date=datetime.date(1987, 12, 5),
                         genre=pop)
 
     db.session.add(Song(title=song['song'],

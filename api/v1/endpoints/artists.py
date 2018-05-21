@@ -93,7 +93,7 @@ class ArtistsArchiveCollection(Resource):
         end_day = day + 1 if day else 31
         start_date = '{0:04d}-{1:02d}-{2:02d}'.format(year, start_month, start_day)
         end_date = '{0:04d}-{1:02d}-{2:02d}'.format(year, end_month, end_day)
-        artists_query = Artist.query.filter(Artist.pub_date >= start_date).filter(Artist.pub_date <= end_date)
+        artists_query = Artist.query.filter(Artist.formation_date >= start_date).filter(Artist.formation_date <= end_date)
 
         artists_page = artists_query.paginate(page, per_page, error_out=False)
 

@@ -14,6 +14,44 @@ def get_one_or_create(session,
         return model(**kwargs), False
 
 
+class ArtificialSong(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.relationship('ArtificialTitle', backref=db.backref('ArtificialSong', lazy='dynamic'))
+    lyrics = db.Column(db.Text)
+    model = db.Column(db.String(50))
+    creation_date = db.Column(db.DateTime)
+    user = db.relationship('User', backref=db.backref('ArtificialSong', lazy='dynamic'))
+    artist = db.relationship('Artist', backref=db.backref('ArtificialSong', lazy='dynamic'))
+
+    def __init__(self, title, lyrics, model, creation_date=None):
+        self.title = title
+        self.lyrics = lyrics
+        self.model = model
+
+        if creation_date is None:
+            creation_date = datetime.utcnow()
+        self.creation_date = creation_date
+
+    def __repr__(self):
+        return '<ArtificialSong %r>' % self.title
+
+
+class ArtificialTitle(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(50))
+    creation_date = db.Column(db.DateTime)
+
+    def __init__(self, title, creation_date=None):
+        self.title = title
+
+        if creation_date is None:
+            creation_date = datetime.utcnow()
+        self.creation_date = creation_date
+
+    def __repr__(self):
+        return '<ArtificialTitle %r>' % self.title
+
+
 class Song(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(50))
@@ -38,18 +76,18 @@ class Song(db.Model):
 class Artist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80))
-    pub_date = db.Column(db.DateTime)
+    formation_date = db.Column(db.DateTime)
     country = db.Column(db.String(80))
     genre_id = db.Column(db.Integer, db.ForeignKey('genre.id'))
     genre = db.relationship('Genre', backref=db.backref('artist', lazy='dynamic'))
 
-    def __init__(self, name, country, genre, pub_date=None):
+    def __init__(self, name, country, genre, formation_date=None):
         self.name = name
         self.country = country
 
-        if pub_date is None:
-            pub_date = datetime.utcnow()
-        self.pub_date = pub_date
+        if formation_date is None:
+            formation_date = datetime.utcnow()
+        self.formation_date = formation_date
 
         self.genre = genre
 
@@ -66,3 +104,23 @@ class Genre(db.Model):
 
     def __repr__(self):
         return '<Genre %r>' % self.name
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50))
+    email = db.Column(db.String(50))
+    auth_method = db.Column(db.String(50))
+    member_since = db.Column(db.DateTime)
+
+    def __init__(self, name, email, auth_method, member_since=None):
+        self.name = name
+        self.email = email
+        self.auth_method = auth_method
+
+        if member_since is None:
+            member_since = datetime.utcnow()
+        self.member_since = member_since
+
+    def __repr__(self):
+        return '<User %r>' % self.name
