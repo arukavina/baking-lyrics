@@ -3,8 +3,7 @@ import datetime
 import pandas as pd
 
 # Libs
-from flask import Flask, Blueprint
-from flask import render_template
+from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
@@ -46,7 +45,7 @@ for i, song in song_data.iterrows():
 
     db.session.add(Song(title=song['song'],
                         lyrics=song['text'],
-                        pub_date=datetime.date(2016, 12, 5),
+                        publication_date=datetime.date(2016, 12, 5),
                         artist=artist
                         )
                    )

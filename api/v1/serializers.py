@@ -6,7 +6,7 @@ artist = api.model('Artist', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of a artist'),
     'name': fields.String(required=True, description='Artist name'),
     'country': fields.String(required=True, description='Artist\'s origin country'),
-    'pub_date': fields.DateTime,
+    'formation_date': fields.DateTime,
     'genre': fields.String(attribute='genre.name'),
 })
 
@@ -34,7 +34,7 @@ song = api.model('Song', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of a song'),
     'title': fields.String(required=True, description='Song title'),
     'lyrics': fields.String(required=True, description='Song lyrics'),
-    'pub_date': fields.DateTime,
+    'publication_date': fields.DateTime,
     'artist': fields.List(fields.Nested(artist)),
 })
 

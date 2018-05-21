@@ -7,6 +7,7 @@ import random
 # Libs
 from flask import Flask, Blueprint
 from flask import render_template
+from flask import jsonify
 
 # Own
 from api.util import log_utils
@@ -15,6 +16,7 @@ from api.v1.endpoints.genres import ns as genres_namespace
 from api.v1.endpoints.songs import ns as lyrics_namespace
 from api.v1.endpoints.titles import ns as titles_namespace
 from api.database import db
+from api.database.models import Song
 from api.v1.restplus import api
 from api.v1.restplus import limiter
 # import api.v1.errors
@@ -35,6 +37,9 @@ app.config.from_pyfile('config.py')
 # Load the file specified by the APP_CONFIG_FILE environment variable
 # Variables defined here will override those in the default configuration
 app.config.from_envvar('APP_CONFIG_FILE')
+
+# Igniting DB
+db.init_app(app)
 
 # Setting up logger
 time_stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
@@ -58,7 +63,7 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/hello")
+@app.route("/random")
 def hello():
     return get_random_lyric()
 
@@ -68,8 +73,9 @@ def get_random_lyric():
 
     :return:
     """
-    greeting_list = ['Ciao', 'Hei', 'Salut', 'Hola', 'Hallo', 'Hej']
-    return random.choice(greeting_list)
+    number_songs = db.session.query(Song.id).count()
+    song = Song.query.filter(Song.id == random.randint(1, number_songs)).one()
+    return jsonify(json_list=song.as_dict()), 200
 
 
 def main():
@@ -85,8 +91,6 @@ def main():
     api.add_namespace(titles_namespace)
 
     app.register_blueprint(blueprint)
-
-    db.init_app(app)
     app.app_context().push()
 
     print(app.url_map)
