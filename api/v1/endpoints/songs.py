@@ -9,100 +9,100 @@ from flask_restplus import Resource
 from flask_restplus import abort
 
 # Own
-from api.database.models import Lyric, Band
-from api.v1.models.business import create_lyric
+from api.database.models import Song, Artist
+from api.v1.models.business import create_song
 from api.v1.restplus import api
-from api.v1.serializers import lyric
+from api.v1.serializers import song
 
 logger = logging.getLogger('baking-api')
-ns = api.namespace('lyrics', description='Operations related to the lyrics generation')
+ns = api.namespace('songs', description='Operations related to the songs generation')
 
 # TODO: Move to app cache.
-current_lyrics_model = None
+current_songs_model = None
 current_title_model = None
-current_lyrics_model_name = None
+current_songs_model_name = None
 current_title_model_name = None
 
 
 @ns.route('/')
-class LyricCollection(Resource):
+class SongCollection(Resource):
 
-    @ns.marshal_list_with(lyric)
+    @ns.marshal_list_with(song)
     def get(self):
         """
-        Returns list of lyrics
+        Returns list of songs
         """
-        lyrics = Lyric.query.all()
-        return lyrics
+        songs = Song.query.all()
+        return songs
 
-    @ns.response(201, 'Lyric successfully created.')
-    @ns.expect(lyric)
+    @ns.response(201, 'Song successfully created.')
+    @ns.expect(song)
     def post(self):
         """
-        Creates a new lyric.
+        Creates a new song.
         """
         data = request.json
-        create_lyric(data)
+        create_song(data)
         return None, 201
 
 
 @ns.route('/<int:id>')
-@ns.response(404, 'Lyric not found.')
-class LyricItem(Resource):
+@ns.response(404, 'Song not found.')
+class SongItem(Resource):
 
-    @ns.marshal_with(lyric)
+    @ns.marshal_with(song)
     def get(self, id):
         """
-        Returns a lyric with a list of bands.
+        Returns a song with a list of bands.
         """
-        return Lyric.query.filter(Lyric.id == id).one()
+        return Song.query.filter(Song.id == id).one()
 
-    # @ns.expect(lyric)
-    # @ns.response(204, 'Lyric successfully updated.')
+    # @ns.expect(song)
+    # @ns.response(204, 'Song successfully updated.')
     # def put(self, id):
     #     """
-    #     Updates a lyric.
-    #     Use this method to change the name of a lyric.
+    #     Updates a song.
+    #     Use this method to change the name of a song.
     #     * Send a JSON object with the new name in the request body.
     #     ```
     #     {
-    #       "name": "New Lyric Name"
+    #       "name": "New Song Name"
     #     }
     #     ```
-    #     * Specify the ID of the lyric to modify in the request URL path.
+    #     * Specify the ID of the song to modify in the request URL path.
     #     """
     #     data = request.json
-    #     update_lyric(id, data)
+    #     update_song(id, data)
     #     return None, 204
     #
-    # @ns.response(204, 'Lyric successfully deleted.')
+    # @ns.response(204, 'Song successfully deleted.')
     # def delete(self, id):
     #     """
-    #     Deletes a lyric.
+    #     Deletes a song.
     #     """
-    #     delete_lyric(id)
+    #     delete_song(id)
 
 
 @ns.route('/generate/<lang>/words/<int:number_words>/')
 @ns.route('/generate/<lang>/words/<int:number_words>/bands/<int:band_id>/')
-@ns.response(404, 'Band not found.')
+@ns.response(404, 'Artist not found.')
 @ns.response(500, 'Internal server error.')
-class LyricItem(Resource):
+class SongItem(Resource):
 
-    @ns.marshal_with(lyric)
+    @ns.marshal_with(song)
     def get(self, lang='es', number_words=0, band_id=None):
         """
-        Returns a generated lyric for the required band.
+        Returns a generated song for the required band.
         """
-        return Band.query.filter(Lyric.id == band_id).one()
-        # band = Band.query.filter(Lyric.id == band_id).one()
+        return Artist.query.filter(Song.id == band_id).one()
+        # band = Artist.query.filter(Song.id == band_id).one()
 #         if band is None:
 #             logger.error('Not able to instantiate band: {}'.format(band_id))
 #             return render_template('500.htm'), 500
 #
-#         global current_lyrics_model
+#         global current_songs_model
 #         global current_title_model
-#         global current_lyrics_model_name
+#         global current_songs_model_name
 #         global current_title_model_name
 #
 #         try:
@@ -122,40 +122,40 @@ class LyricItem(Resource):
 #             elif model == 'current':
 #                 logger.info("Using cached default models...")
 #
-#                 current_lyrics_model.__str__()
+#                 current_songs_model.__str__()
 #                 current_title_model.__str__()
 #
-#             elif model == current_lyrics_model_name:
+#             elif model == current_songs_model_name:
 #                 logger.info("Using cached models...")
 #
-#                 current_lyrics_model.__str__()
+#                 current_songs_model.__str__()
 #                 current_title_model.__str__()
 #
 #             else:
 #
 #                 logger.info("Loading {} models...".format(model))
 #
-#                 current_lyrics_model_name = model
+#                 current_songs_model_name = model
 #
 #                 _ModelClass, args = get_model_class(model)
 #
-#                 current_lyrics_model = _ModelClass(**args)
-#                 current_lyrics_model.__str__()
+#                 current_songs_model = _ModelClass(**args)
+#                 current_songs_model.__str__()
 #
-#                 logger.info("{} lyrics models initialized correctly".format(current_lyrics_model))
+#                 logger.info("{} songs models initialized correctly".format(current_songs_model))
 #
-#             lyrics = ""
+#             songs = ""
 #
 #             try:
-#                 lyrics = current_lyrics_model.generate_sentence(lang, number_words, 69, words)
+#                 songs = current_songs_model.generate_sentence(lang, number_words, 69, words)
 #             except NotImplementedError:
 #                 abort(501, "Not implemented error: " + str(model))
 #
-#             return jsonify(lyrics)
+#             return jsonify(songs)
 #         except HTTPException as error:
-#             abort(500, "Error generating lyrics: " + str(error))
+#             abort(500, "Error generating songs: " + str(error))
 #         except ValueError as error:
-#             abort(500, "Error parsing lyrics: " + str(error))
+#             abort(500, "Error parsing songs: " + str(error))
 #
 
 
@@ -170,7 +170,7 @@ def get_model_class(model):
 
     current_model_class = current_app.config[str(model).upper()]
 
-    if current_model_class == 'LyricsLSTMModel':
+    if current_model_class == 'SongsLSTMModel':
 
         args = dict(
             model_file_path=current_app.config["LYRICS_LSTM_MODEL_FILE_PATH"],
