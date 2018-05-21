@@ -10,7 +10,7 @@ from flask_restplus import Resource
 from api.database.models import Genre
 from api.v1.models.business import create_genre, delete_genre, update_genre
 from api.v1.restplus import api
-from api.v1.serializers import genre, genres_with_bands
+from api.v1.serializers import genre, genres_with_artists
 
 logger = logging.getLogger('baking-api')
 
@@ -20,7 +20,7 @@ ns = api.namespace('genres', description='Operations related to genres')
 @ns.route('/')
 class GenreCollection(Resource):
 
-    @api.marshal_list_with(genres_with_bands)
+    @api.marshal_list_with(genres_with_artists)
     def get(self):
         """
         Returns list of genres

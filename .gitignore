@@ -101,6 +101,10 @@ ENV/
 *.yaml
 *.h5
 
+# Data
+*.csv
+*.sqlite
+
 .pytest_cache/
 /api/static/node_modules/
 docs/source/_static/
