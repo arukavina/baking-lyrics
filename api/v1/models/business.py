@@ -16,6 +16,25 @@ def create_song(data):
     db.session.commit()
 
 
+def update_song(song_id, data):
+    song = Song.query.filter(Song.id == song_id).one()
+    song.title = data.get('title')
+    song.lyrics = data.get('lyrics')
+    song.publication_date = data.get('publication_date')
+    song.publication_date = data.get('publication_date')
+    song.artist_id = data.get('artist_id')
+    song.artist = Artist.query.filter(Artist.id == song.artist_id).one()
+
+    db.session.add(song)
+    db.session.commit()
+
+
+def delete_song(song_id):
+    post = Song.query.filter(Song.id == song_id).one()
+    db.session.delete(post)
+    db.session.commit()
+
+
 def create_artist(data):
     name = data.get('name')
     country = data.get('country')

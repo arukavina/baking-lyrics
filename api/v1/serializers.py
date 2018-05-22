@@ -38,7 +38,25 @@ song = api.model('Song', {
     'artist': fields.List(fields.Nested(artist)),
 })
 
-title = api.model('Title', {
-    'body': fields.String(required=True, description='Generated Title'),
-    'song': fields.List(fields.Nested(song)),
+artificial_title = api.model('ArtificialTitle', {
+    'body': fields.String(required=True, description='Artificial Title'),
+    'song': fields.Nested(song),
+})
+
+user = api.model('User', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of an user'),
+    'name': fields.String(required=True, description='User name'),
+    'email': fields.String(required=True, description='User email'),
+    'auth_method': fields.String(required=True, description='Authentication method'),
+    'member_since': fields.DateTime,
+})
+
+artificial_song = api.model('ArtificialSong', {
+    'id': fields.Integer(readOnly=True, description='The unique identifier of an artificial song'),
+    'title': fields.Nested(artificial_title),
+    'lyrics': fields.String(required=True, description='Artificial song lyrics'),
+    'model': fields.String(required=True, description='Model used'),
+    'creation_date': fields.DateTime,
+    'user': fields.Nested(user),
+    'artist': fields.Nested(artist),
 })
