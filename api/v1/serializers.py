@@ -1,6 +1,6 @@
 from flask_restplus import fields
 
-from api.v1.restplus import api
+from api.v1 import api
 
 artist = api.model('Artist', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of a artist'),

@@ -7,7 +7,7 @@ from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from api.database import db
+from api.v1 import db
 from api.database.models import Genre, Artist, Song
 
 DATA_FILE_PATH = r'./resources/songdata.csv'
