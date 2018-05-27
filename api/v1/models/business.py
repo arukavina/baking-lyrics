@@ -1,5 +1,5 @@
 # Own
-from api.database import db
+from api.v1 import db
 from api.database.models import Artist, Genre, Song
 
 

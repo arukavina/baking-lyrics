@@ -9,7 +9,7 @@ from flask_restplus import Resource
 # Own
 from api.database.models import Song
 from api.v1.models.business import create_song, update_song, delete_song
-from api.v1.restplus import api
+from api.v1 import api
 from api.v1.serializers import song
 
 logger = logging.getLogger('baking-api')
