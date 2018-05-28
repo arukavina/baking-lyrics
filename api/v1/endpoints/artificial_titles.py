@@ -8,7 +8,9 @@ from flask_restplus import Resource
 # Own
 from api.v1 import api
 from api.v1.serializers import artificial_title
+from api.database.models import ArtificialTitle
 from api.database.models import Song
+from api.v1.models.models_manager import ModelsManager
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_titles', description='Operations related to artificially generated titles')
@@ -22,7 +24,7 @@ class ArtificialTitleCollection(Resource):
         """
         Returns list of generated titles
         """
-        titles = dict(body="let it be", lyrics=Song.query.filter(Song.id == 1).one())
+        titles = ArtificialTitle.query.all()
         return titles
 
 
@@ -36,4 +38,7 @@ class ArtificialTitleItem(Resource):
         """
         Returns a generated title for the required lang and song_id.
         """
-        return "" # Title.query.filter(Song.id == song_id).one()
+        model = ModelsManager().get_model('titles')
+        lyrics_text = Song.query.filter(Song.id == song_id).one().lyrics
+        title_text = model.generate_sentence(input_text=lyrics_text)
+        return ArtificialTitle(title_text)

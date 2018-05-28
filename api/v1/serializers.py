@@ -39,8 +39,9 @@ song = api.model('Song', {
 })
 
 artificial_title = api.model('ArtificialTitle', {
-    'body': fields.String(required=True, description='Artificial Title'),
-    'song': fields.Nested(song),
+    'id': fields.Integer(readOnly=True, description='The unique identifier of an artificial title'),
+    'title': fields.String(required=True, description='Title value'),
+    'creation_date': fields.DateTime,
 })
 
 user = api.model('User', {
