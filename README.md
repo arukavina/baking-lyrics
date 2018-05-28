@@ -3,9 +3,9 @@ Baking Lyrics
 
 [www.bakinglyrics.com](www.bakinglyrics.com)
 
-Coverage | Travis | Python Lint
---- | --- | ---
- |  |
+Docs | Coverage | Travis | Python Lint 
+--- | --- | --- | ---
+[![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest) |  | |
  |  |
 
 # Intro
