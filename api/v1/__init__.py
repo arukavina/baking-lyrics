@@ -47,8 +47,9 @@ def database_not_found_error_handler():
 
 
 def create_app(app_config_file):
-    app = Flask(__name__,
-                instance_relative_config=True,
+
+    print('Current wd={}'.format(os.getcwd()))
+    app = Flask("baking-lyrics",
                 static_folder="static/dist",
                 template_folder="static")
 
@@ -56,9 +57,6 @@ def create_app(app_config_file):
 
     # Load the default configuration
     app.config.from_object('config.default')
-
-    # Load the configuration from the instance folder
-    app.config.from_pyfile('config.py')
 
     # Load the file specified by the APP_CONFIG_FILE environment variable
     # Variables defined here will override those in the default configuration
@@ -75,5 +73,11 @@ def create_app(app_config_file):
     log_utils.print_imports_versions(logger)
 
     logger.info('Starting {} server at http://{}:5000/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME']))
+
+    # Igniting DB
+    db.init_app(app)
+
+    # Bcrypt
+    flask_bcrypt.init_app(app)
 
     return app

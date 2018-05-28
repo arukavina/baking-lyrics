@@ -4,12 +4,12 @@ import unittest
 import logging
 
 # Libs
-from flask import Blueprint
+from flask import Blueprint, render_template
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
 
 # Own
-from api.v1 import create_app, db, api, limiter, flask_bcrypt
+from api.v1 import create_app, db, api, limiter
 
 from api.v1.endpoints.artists import ns as bands_namespace
 from api.v1.endpoints.genres import ns as genres_namespace
@@ -33,6 +33,12 @@ manager.add_command('db', MigrateCommand)
 limiter.init_app(app)
 
 
+@app.route("/")
+@limiter.exempt
+def index():
+    return render_template("index.html")
+
+
 @manager.command
 def run():
 
@@ -50,13 +56,7 @@ def run():
 
     app.app_context().push()
 
-    # Igniting DB
-    db.init_app(app)
-
-    # Bcrypt
-    flask_bcrypt.init_app(app)
-
-    print(app.url_map)
+    # print(app.url_map)
 
     app.run(debug=app.config['DEBUG'], use_reloader=False)
 
