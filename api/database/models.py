@@ -1,41 +1,35 @@
 # Generic
 from datetime import datetime
 
-from api.database import db
-from sqlalchemy.orm.exc import NoResultFound
-
-
-def get_one_or_create(session,
-                      model,
-                      **kwargs):
-    try:
-        return session.query(model).filter_by(**kwargs).one(), True
-    except NoResultFound:
-        return model(**kwargs), False
-
-# root_id = db.Column(db.ForeignKey(DomainRoot.id))
-# root = db.relationship(DomainRoot, backref='paths')
+from api.v1 import db, flask_bcrypt
 
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
-    email = db.Column(db.String(50))
+    """ User Model for storing user related details """
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    registered_on = db.Column(db.DateTime, nullable=False)
+    admin = db.Column(db.Boolean, nullable=False, default=False)
+    public_id = db.Column(db.String(100), unique=True)
+    username = db.Column(db.String(50), unique=True)
+    password_hash = db.Column(db.String(100))
     auth_method = db.Column(db.String(50))
     member_since = db.Column(db.DateTime)
 
-    def __init__(self, name, email, auth_method, member_since=None):
-        self.name = name
-        self.email = email
-        self.auth_method = auth_method
+    @property
+    def password(self):
+        raise AttributeError('password: write-only field')
 
-        if member_since is None:
-            member_since = datetime.utcnow()
-        self.member_since = member_since
+    @password.setter
+    def password(self, password):
+        self.password_hash = flask_bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        return flask_bcrypt.check_password_hash(self.password_hash, password)
 
     def __repr__(self):
-        return '<User %r>' % self.name
-
+        return "<User '{}'>".format(self.username)
 
 class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)

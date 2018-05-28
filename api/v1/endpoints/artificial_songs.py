@@ -8,7 +8,7 @@ from flask_restplus import abort
 
 # Own
 from api.database.models import ArtificialSong, Artist
-from api.v1.restplus import api
+from api.v1 import api
 from api.v1.serializers import song
 
 logger = logging.getLogger('baking-api')

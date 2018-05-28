@@ -9,7 +9,7 @@ from flask_restplus import Resource
 # Own
 from api.database.models import Genre
 from api.v1.models.business import create_genre, delete_genre, update_genre
-from api.v1.restplus import api
+from api.v1 import api
 from api.v1.serializers import genre, genres_with_artists
 
 logger = logging.getLogger('baking-api')

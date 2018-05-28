@@ -3,5 +3,5 @@ SQLALCHEMY_ECHO = True
 TESTING = True
 PROPAGATE_EXCEPTIONS = None
 PRESERVE_CONTEXT_ON_EXCEPTION = None
-ENV = 'development'
-# SERVER_NAME = '127.0.0.1'
+ENV = 'testing'
+SERVER_NAME = 'localhost'

@@ -1,3 +1,5 @@
+import os
+
 # Flask settings
 DEBUG = False
 FLASK_DEBUG = False
@@ -9,7 +11,7 @@ RESTPLUS_MASK_SWAGGER = False
 RESTPLUS_ERROR_404_HELP = False
 
 # SQLAlchemy settings
-SQLALCHEMY_DATABASE_URI = 'sqlite:///db.sqlite'
+SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join('resources', 'flask_bakinglyrics_main.db')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # Log

@@ -7,7 +7,7 @@ from flask_restplus import Resource
 from api.database.models import Artist
 from api.v1.models.business import create_artist, update_artist, delete_artist
 from api.v1.parsers import pagination_arguments
-from api.v1.restplus import api
+from api.v1 import api
 from api.v1.serializers import artist, page_of_artists
 
 logger = logging.getLogger('baking-lyrics')
