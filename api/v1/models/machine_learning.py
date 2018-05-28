@@ -282,7 +282,7 @@ class TitleLSTMModel(Model):
         self.model_loaded = True
         logger.info("Loaded model from disk")
 
-    def generate_sentence(self, input_text='', max_output_sequence_lenght=8, number_of_titles=3, *kargs):
+    def generate_sentence(self, input_text='', temperature=0., max_output_sequence_lenght=8, number_of_titles=3, *kargs):
         import numpy as np
         from keras.preprocessing.sequence import pad_sequences
 
@@ -305,6 +305,7 @@ class TitleLSTMModel(Model):
 
             for i in range(max_output_sequence_lenght):
                 output_tokens = self.model.predict([input_sequence, output_sequence])
+                output_tokens = output_tokens + np.random.normal(size=output_tokens.shape)*temperature
                 pred_sequence[0,] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))] for ii in
                                      range(max_output_sequence_lenght)]
 
