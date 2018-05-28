@@ -247,47 +247,80 @@ class LyricsLSTMModel(Model):
 
 
 class TitleLSTMModel(Model):
-    def __init__(self, model_file_path, tokenizer_file_path):
-
-        logger.info('Checking if "tokenizer_file_path" is a valid path: {}'.format(tokenizer_file_path))
-        if not os.path.exists(tokenizer_file_path):
-            logger.error("[{}] is not a valid path".format(tokenizer_file_path))
-            raise IOError()
-
+    def __init__(self, model_file_path):
         super().__init__(model_file_path)
-
-        self.tokenizer_file_path = tokenizer_file_path
-
-        self.text = None
-        self.characters = None
-        self.length = None
+        self.tokenizer = None
 
     def load_model(self):
+        from keras.models import load_model
+        import pickle
 
-        self.text = self.text.lower().strip()
-        self.characters = sorted(list(set(self.text)))
-        self.length = len(self.text)
+        logger.info("Loading model...")
+        try:
+            loaded_model = load_model(self.model_file_path + '.h5')
+        except IOError as e:
+            logger.error("Is not possible to load Keras model")
+            raise e
+        except ImportError as e:
+            logger.error("Missing dependency")
+            raise e
 
-        logger.info("Characters V: {}".format(self.characters))
-        logger.info("Text length: {}".format(self.length))
+        logger.info("Tokenizer model...")
+        try:
+            with open(self.model_file_path + '.tokenizer.pickle', 'rb') as handle:
+                tokenizer = pickle.load(handle)
 
-        # Load YAML and create models
-        logger.info("Loading models...")
+        except IOError as e:
+            logger.error("Is not possible to load tokenizer")
+            raise e
+        except ImportError as e:
+            logger.error("Missing dependency")
+            raise e
 
-        # TODO: Sergio.
-
-        self.model = None
+        self.model = loaded_model
+        self.tokenizer = tokenizer
         self.model_loaded = True
-        logger.info("Loaded models from disk")
+        logger.info("Loaded model from disk")
 
-    def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
+    def generate_sentence(self, input_text='', max_output_sequence_lenght=8, number_of_titles=3, *kargs):
+        import numpy as np
+        from keras.preprocessing.sequence import pad_sequences
 
-        g_txt = range(1, length)
-        return g_txt
+        reverse_word_map = dict(map(reversed, self.tokenizer.word_index.items()))
+
+        input_text = input_text.lower().replace("'", ' ').replace('\n', 'xnewline ')
+        input_sequence = self.tokenizer.texts_to_sequences([input_text])
+        input_sequence = pad_sequences(input_sequence, padding='post', truncating='post', maxlen=100)
+
+        start_token_value = self.tokenizer.texts_to_sequences(['xseqstart'])[0][0]
+        end_token_value = self.tokenizer.texts_to_sequences(['xseqend'])[0][0]
+        output_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
+        output_sequence[0, 0] = start_token_value
+
+        titles = []
+        for j in range(number_of_titles):
+            output_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
+            pred_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
+            output_sequence[0, 0] = start_token_value
+
+            for i in range(max_output_sequence_lenght):
+                output_tokens = self.model.predict([input_sequence, output_sequence])
+                pred_sequence[0,] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))] for ii in
+                                     range(max_output_sequence_lenght)]
+
+                for ii in range(max_output_sequence_lenght - 1):
+                    output_sequence[0, ii + 1] = pred_sequence[0, ii]
+
+            clean_output_sequence = filter(lambda x: x not in set([start_token_value, end_token_value, 0]),
+                                           output_sequence[0])
+            titles.append(" ".join([reverse_word_map.get(token, '') for token in clean_output_sequence]))
+
+        return titles[0]
 
     def __str__(self):
         from pprint import pprint
         pprint(vars(self))
+
 
 
 if __name__ == '__main__':
