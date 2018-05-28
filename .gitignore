@@ -1,5 +1,7 @@
 # Created by .ignore support plugin (hsz.mobi)
+
 ### Python template
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -103,9 +105,12 @@ ENV/
 
 # Data
 *.csv
-*.sqlite
+*.db
 
 .pytest_cache/
 /api/static/node_modules/
 docs/source/_static/
 docs/source/_templates/
+
+#.DS_Store
+*.DS_Store

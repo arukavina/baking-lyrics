@@ -1,7 +1,7 @@
-ENV = 'production'
-SERVER_NAME = 'bakinglyrics.com'
 DEBUG = False
 SQLALCHEMY_ECHO = False
 TESTING = False
 PROPAGATE_EXCEPTIONS = None
 PRESERVE_CONTEXT_ON_EXCEPTION = None
+ENV = 'production'
+SERVER_NAME = 'bakinglyrics.com'

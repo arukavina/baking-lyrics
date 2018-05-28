@@ -6,7 +6,7 @@ from flask import current_app
 from flask_restplus import Resource
 
 # Own
-from api.v1.restplus import api
+from api.v1 import api
 from api.v1.serializers import artificial_title
 from api.database.models import Song
 
