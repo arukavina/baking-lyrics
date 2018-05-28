@@ -4,7 +4,7 @@ python:
 install: "-pip install -r requirements/dev.txt"
 script:
   - coverage erase
-  - coverage run api/*.py && coverage html
+  - coverage run tests/test_*.py && coverage html
 after_success:
   - codecov
 branches:
