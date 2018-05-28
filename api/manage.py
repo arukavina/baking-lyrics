@@ -2,6 +2,7 @@
 import os
 import unittest
 import logging
+import coverage
 
 # Libs
 from flask import Blueprint, render_template
@@ -31,6 +32,18 @@ migrate = Migrate(app, db)
 manager.add_command('db', MigrateCommand)
 
 limiter.init_app(app)
+
+# Test coverage configuration
+COV = coverage.coverage(
+    branch=True,
+    include='api/*',
+    omit=[
+        'api/resources/*.py',
+        'api/static/*.py',
+        'api/migrations/*.py'
+    ]
+)
+COV.start()
 
 
 @app.route("/")
