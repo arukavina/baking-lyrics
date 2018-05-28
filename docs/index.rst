@@ -10,7 +10,7 @@ Welcome to Baking-Lyrics's documentation!
    :maxdepth: 3
    :caption: Contents:
 
-
+   readme
 
 Indices and tables
 ==================
