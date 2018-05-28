@@ -105,7 +105,7 @@ ENV/
 
 # Data
 *.csv
-*.sqlite
+*.db
 
 .pytest_cache/
 /api/static/node_modules/
