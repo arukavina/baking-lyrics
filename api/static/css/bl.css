@@ -1,41 +1,121 @@
-.page-header {
-    min-height: 100%;
-    text-align: center;
-    background-image: url('../images/header.jpg');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: cover;
-    margin-top: -15px;
+body { 
+  font-size: 16px;
+  font-family: 'Roboto', sans-serif;
+  background: url(../images/back.jpg) no-repeat fixed; 
+  background-position-x: center;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
 }
+
+
+.logo img {height: 150px; margin: 2em;} 
+
+
+#content {
+  height: 100%;
+  background:rgba(0,0,0,0.6);
+}
+
 .header-contents {
-    top: 50%;
-    position:absolute;
+  padding: 25px;
+  border-radius: 10px;
+  text-align: center;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
-.header-contents h1 {
-    font-size: 120px;
-    font-weight: 300;
-}
-.header-contents button {
-    font-size: 35px;
-    border-radius: 30px;
-    font-weight: 300;
-}
+
 
 .header-contents button:focus {
     outline: None;
 }
 
-.wrapper {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-gap: 10px;
-  grid-auto-rows: 200px;
-  grid-template-areas:
-    ". a a ."
-    ". a a .";
+/* ####### FOOTER ########## */
+
+
+.credit {
+  position: fixed;
+  margin: 0 auto;
+  left:0;
+  right: 0;
+  bottom: 5px;
+  color: #FAFAFA;
+  font-size: 15px;
+  text-align: center;
 }
-.item1 {
-  grid-area: a;
-  align-self: center;
-  justify-self: center;
+
+.p5 {
+  position: fixed;
+  right: 10px;
+  bottom: 5px;
+  color: #FAFAFA;
+  font-size: 12px;
+  text-align: center;
 }
+
+.credit a, .p5 a {
+  color: #FFFFFF;
+  text-decoration: none;
+}
+.p5 .fa {
+  color: #EF233C;
+  margin: 0 3px;
+  font-size: 10px;
+}
+
+@media (max-width: 768px) {
+  body {
+    position:relative;
+  }
+
+  .credit {
+    position: absolute;
+  }
+
+  }
+
+ /*==========  Mobile First Method  ==========*/
+
+    /* Extra Small Devices, Phones */ 
+    @media only screen and (min-width : 250px) {
+      .header-contents h1 {
+        color: white;
+        font-size: 2em;
+        font-weight: 300;
+        white-space: nowrap;
+        margin-bottom: 0.5em;
+      }
+      .header-contents button {
+        font-size: 1em;
+        border-radius: 25px;
+        font-weight: 300;
+        margin: auto;
+        display: block;
+        padding: 0.2em 0.8em;
+      }
+      .logo { padding: 2em;}
+      .logo img  { display: block; margin: auto;}
+    }
+    /* Small Devices, Tablets */
+    @media only screen and (min-width : 768px) {
+      .logo { float: left; }
+    }
+
+    /* Medium Devices, Desktops */
+    @media only screen and (min-width : 992px) {
+      .header-contents h1 {
+        font-size: 3em;
+      }
+      .header-contents button { font-size: 1.5em }
+    }
+
+    /* Large Devices, Wide Screens */
+    @media only screen and (min-width : 1200px) {
+      .header-contents h1 {
+        font-size: 4em;
+      }
+      .header-contents button { font-size: 2em }
+    }

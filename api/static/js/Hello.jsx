@@ -1,7 +1,6 @@
 import React from "react";
 import { Button, Grid, Row, Col } from "react-bootstrap";
 
-var $ = require('jquery');
 
 export default class Hello extends React.Component {
     constructor(props) {
@@ -17,18 +16,17 @@ export default class Hello extends React.Component {
     }
 
     getPythonHello() {
-        $.get(window.location.href + 'hello', (data) => {
-            console.log(data);
-            this.personaliseGreeting(data);
-        });
+      fetch(window.location.href + 'hello')
+        .then(res => res.json())
+        .then(data => this.personaliseGreeting(data));
     }
 
     render () {
         return (
                 <div>
                     <h1>{this.state.greeting}</h1>
-                    <div class="wrapper">
-                      <div class="item1">
+                    <div className="wrapper">
+                      <div className="item1">
                         <Button bsSize="large" bsStyle="danger" onClick={this.getPythonHello}>
                         Get some Lyrics
                         </Button>
