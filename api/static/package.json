@@ -40,5 +40,8 @@
       "es2015",
       "react"
     ]
+  },
+  "dependencies": {
+    "assign": "^0.1.7"
   }
 }
