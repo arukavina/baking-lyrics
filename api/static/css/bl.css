@@ -8,7 +8,49 @@ body {
   -o-background-size: cover;
   background-size: cover;
 }
+h1 { text-align: center;}
 
+.lyrics {
+  color: white !important;
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: 35vw;
+  text-align: center;
+  overflow: auto;
+  height: 75vh;
+  margin-top: 3rem;
+}
+
+/* width */
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.lyrics pre {
+  color: white !important;
+}
+
+.lyrics p {
+  font-size: 1.5rem;
+  font-weight: 400;
+}
 
 .logo img {height: 150px; margin: 2em;} 
 
@@ -18,7 +60,7 @@ body {
   background:rgba(0,0,0,0.6);
 }
 
-.header-contents {
+.center {
   padding: 25px;
   border-radius: 10px;
   text-align: center;
@@ -29,7 +71,8 @@ body {
 }
 
 
-.header-contents button:focus {
+
+ button:focus {
     outline: None;
 }
 
@@ -85,7 +128,6 @@ body {
         color: white;
         font-size: 2em;
         font-weight: 300;
-        white-space: nowrap;
         margin-bottom: 0.5em;
       }
       .header-contents button {
@@ -98,18 +140,32 @@ body {
       }
       .logo { padding: 2em;}
       .logo img  { display: block; margin: auto;}
+      .lyrics { width: 100vw; margin-top: 2rem; height: 55vh}
+      .credit { bottom: 30px;}
+      .p5 {margin: 0 auto; left: 0; right: 0}
     }
     /* Small Devices, Tablets */
     @media only screen and (min-width : 768px) {
       .logo { float: left; }
+      .up {    
+        position: fixed;
+        right: 0;
+        top: 0;
+        margin: 2em;
+      }
+      .up button {
+        float: right;
+      }
+      .lyrics { width: 80vw; margin-top: 6rem;}
     }
-
     /* Medium Devices, Desktops */
     @media only screen and (min-width : 992px) {
       .header-contents h1 {
         font-size: 3em;
       }
       .header-contents button { font-size: 1.5em }
+
+      .lyrics { width: 55vw; margin-top: 6rem;}
     }
 
     /* Large Devices, Wide Screens */
