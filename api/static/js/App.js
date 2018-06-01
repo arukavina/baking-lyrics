@@ -15,7 +15,7 @@ const Logo = () => (
 const Footer = () => (
   <div>
     <span className='credit'>
-      Copyright © 2018 Baking Lyrics | Contact: <a href='arukavina@gmail.com' type='email'>arukavina@gmail.com</a>
+      Copyright © 2018 Baking Lyrics | Contact: <a href='rukavina.andrei@gmail.com' type='email'>rukavina.andrei@gmail.com</a>
     </span>
     <span className='p5'>
       Made with <i className="fa fa-heart pulse"></i>
@@ -36,7 +36,7 @@ export default class App extends React.Component {
           <div>
             <Logo/>
             <div className='header-contents'>
-              <Hello name='Andrei' />
+              <Hello/>
             </div>
             <Footer />
           </div>
