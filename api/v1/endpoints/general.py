@@ -12,7 +12,7 @@ from api.v1 import db
 from api.v1 import api
 from api.v1.serializers import song
 
-logger = logging.getLogger('baking-lyrics')
+logger = logging.getLogger('baking-api')
 
 ns = api.namespace('general', description='General API operations')
 
@@ -62,5 +62,6 @@ def get_random_lyric():
     :return: Str, HTML Code
     """
     number_songs = db.session.query(Song.id).count()
+    logger.info("Getting one random song from a pool {}".format(number_songs))
     random_song = Song.query.filter(Song.id == random.randint(1, number_songs)).one()
     return random_song
