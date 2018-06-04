@@ -10,6 +10,9 @@ from sqlalchemy.orm.exc import NoResultFound
 from api.v1 import db
 from api.database.models import Genre, Artist, Song
 
+import os
+print(os.getenv('PYTHONPATH'))
+
 DATA_FILE_PATH = r'../api/resources/songdata.csv'
 song_data = pd.read_csv(DATA_FILE_PATH)
 
@@ -18,7 +21,6 @@ app = Flask(__name__,
             template_folder="static")
 
 # Configure
-
 # Load the default configuration
 app.config.from_object('config.default')
 
@@ -51,4 +53,8 @@ def refresh():
             db.session.commit()
     print("{}".format(len(song_data)))
     db.session.commit()
+
+
+if __name__ == '__main__':
+    refresh()
 
