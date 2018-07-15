@@ -15,7 +15,7 @@ const Logo = () => (
 const Footer = () => (
   <div>
     <span className='credit'>
-      Copyright © 2018 Baking Lyrics | Contact: <a href='rukavina.andrei@gmail.com' type='email'>rukavina.andrei@gmail.com</a>
+      Copyright © 2018 Baking Lyrics | <a href="https://twitter.com/seresv3?ref_src=twsrc%5Etfw" class="twitter-follow-button" data-show-count="false">Follow @seresv3</a><script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
     </span>
     <span className='p5'>
       Made with <i className="fa fa-heart pulse"></i>
