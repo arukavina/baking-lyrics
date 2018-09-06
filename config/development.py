@@ -4,7 +4,5 @@ TESTING = True
 PROPAGATE_EXCEPTIONS = None
 PRESERVE_CONTEXT_ON_EXCEPTION = None
 ENV = 'development'
-
 TITLE_LSTM_MODEL_FILE_PATH = './resources/models/titler_v1'
-
 # SERVER_NAME = '127.0.0.1'
