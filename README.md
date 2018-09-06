@@ -3,10 +3,11 @@ Baking Lyrics
 
 [www.bakinglyrics.com](www.bakinglyrics.com)
 
-Docs | Coverage | Travis | Python Lint 
---- | --- | --- | ---
-[![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest) |  | |
- |  |
+[![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest)
+
+[![Build Status](https://travis-ci.org/arukavina/travis_python_test.svg?branch=master)](https://travis-ci.org/arukavina/travis_python_test)
+
+[![codecov](https://codecov.io/gh/arukavina/travis_python_test/branch/master/graph/badge.svg)](https://codecov.io/gh/arukavina/travis_python_test)
 
 # Intro
 

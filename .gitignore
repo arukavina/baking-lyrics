@@ -106,6 +106,7 @@ ENV/
 # Data
 *.csv
 *.db
+*.zip
 
 .pytest_cache/
 /api/static/node_modules/
