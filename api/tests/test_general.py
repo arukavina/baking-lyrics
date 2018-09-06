@@ -15,7 +15,7 @@ from api.v1.endpoints.general import ns as general_namespace
 class TestViews(TestCase):
     def create_app(self):
 
-        app = create_app('../config/development.py')
+        app = create_app('../config/testing.py')
 
         app.app_context().push()
 
@@ -55,6 +55,15 @@ class TestViews(TestCase):
         response = self.client.post("/api/v1/general/ping")
         print("\n\nResponse: " + str(response.json))
         self.assertEqual(response.json, "pong!")
+
+    def test_random(self):
+        response = self.client.get("/api/v1/general/random")
+        art = response.json["artist"][0]
+        # reading the name of the band in the random response
+        print("\n\nResponse: " + art["name"])
+        bands = ["ABBA","Ace Of Base","Adam Sandler"]
+        assert(bands.count(art["name"]) > 0)
+
 
 
 if __name__ == '__main__':
