@@ -115,3 +115,6 @@ docs/source/_templates/
 
 #.DS_Store
 *.DS_Store
+
+# Notebooks
+/notebooks
