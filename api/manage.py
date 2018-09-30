@@ -1,17 +1,19 @@
-# Generics
-import os
+# Generic
 import unittest
 import logging
 import coverage
 
 # Libs
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for, flash
 from flask_script import Manager
 from flask_migrate import Migrate, MigrateCommand
+from flask_login import login_user, logout_user, current_user
+from flask_login import LoginManager
 
 # Own
+from api.database.models import User
+from api.v1.models.oauth import OAuthSignIn
 from api.v1 import create_app, db, api, limiter
-
 from api.v1.endpoints.artists import ns as bands_namespace
 from api.v1.endpoints.genres import ns as genres_namespace
 from api.v1.endpoints.songs import ns as lyrics_namespace
@@ -45,11 +47,53 @@ COV = coverage.coverage(
 )
 COV.start()
 
+# Login Manager
+lm = LoginManager(app)
+lm.login_view = 'login'
+
 
 @app.route("/")
 @limiter.exempt
 def index():
     return render_template("index.html")
+
+
+@app.route("/login")
+@limiter.exempt
+def login():
+    return render_template("login.html")
+
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
+@app.route('/authorize/<provider>')
+def oauth_authorize(provider):
+    if not current_user.is_anonymous:
+        return redirect(url_for('login'))
+    oauth = OAuthSignIn.get_provider(provider)
+    return oauth.authorize()
+
+
+@app.route('/callback/<provider>')
+def oauth_callback(provider):
+    if not current_user.is_anonymous:
+        return redirect(url_for('login'))
+    oauth = OAuthSignIn.get_provider(provider)
+    social_id, username, email = oauth.callback()
+    if social_id is None:
+        flash('Authentication failed.')
+        return redirect(url_for('login'))
+    user = User.query.filter_by(social_id=social_id).first()
+    if not user:
+        user = User(social_id=social_id, nickname=username, email=email)
+        db.session.add(user)
+        db.session.commit()
+    login_user(user, True)
+    return redirect(url_for('index'))
 
 
 @manager.command

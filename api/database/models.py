@@ -2,20 +2,21 @@
 from datetime import datetime
 
 from api.v1 import db, flask_bcrypt
+from flask_login import UserMixin
 
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     """ User Model for storing user related details """
-
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    email = db.Column(db.String(255), unique=True, nullable=False)
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    social_id = db.Column(db.String(64), nullable=False, unique=True)
+    nickname = db.Column(db.String(64), nullable=False)
+    email = db.Column(db.String(64), nullable=True)
     registered_on = db.Column(db.DateTime, nullable=False)
     admin = db.Column(db.Boolean, nullable=False, default=False)
-    public_id = db.Column(db.String(100), unique=True)
-    username = db.Column(db.String(50), unique=True)
-    password_hash = db.Column(db.String(100))
     auth_method = db.Column(db.String(50))
     member_since = db.Column(db.DateTime)
+    password_hash = db.Column(db.String(255))
 
     @property
     def password(self):
@@ -30,6 +31,7 @@ class User(db.Model):
 
     def __repr__(self):
         return "<User '{}'>".format(self.username)
+
 
 class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -116,7 +118,7 @@ class ArtificialTitle(db.Model):
 class ArtificialSong(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title_id = db.Column(db.Integer, db.ForeignKey(ArtificialTitle.id))
-    title = db.relationship(ArtificialTitle, backref=db.backref('artificialSong', lazy='dynamic'))
+    artificial_title = db.relationship(ArtificialTitle, backref=db.backref('artificialSong', lazy='dynamic'))
     lyrics = db.Column(db.Text)
     model = db.Column(db.String(50))
     creation_date = db.Column(db.DateTime)
@@ -126,7 +128,7 @@ class ArtificialSong(db.Model):
     artist = db.relationship(Artist, backref=db.backref('artificialSong', lazy='dynamic'))
 
     def __init__(self, title, lyrics, model, creation_date=None):
-        self.title = title
+        self.artificial_title = title
         self.lyrics = lyrics
         self.model = model
 
@@ -135,4 +137,4 @@ class ArtificialSong(db.Model):
         self.creation_date = creation_date
 
     def __repr__(self):
-        return '<ArtificialSong %r>' % self.title
+        return '<ArtificialSong %r>' % self.artificial_title
