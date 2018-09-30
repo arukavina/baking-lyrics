@@ -19,8 +19,6 @@ MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
 LOG_DIR = r'logs/'
 LOG_LEVEL = 2
 
-BANDS_PATH = r'./resources/Bands.json'
-
 # Current
 CURRENT_MODEL_LYRICS = r'LYRICS_LSTM_MODEL'
 CURRENT_MODEL_TITLE = r'TITLE_LSTM_MODEL'
@@ -43,3 +41,15 @@ TITLE_LSTM_MODEL = r'TitleLSTMModel'
 # Title - LSTM
 TITLE_LSTM_MODEL_FILE_PATH = ""
 TITLE_LSTM_TOKENIZER_FILE_PATH = ""
+
+# OAuth
+OAUTH_CREDENTIALS = {
+    'facebook': {
+        'id': '470154729788964',
+        'secret': '010cc08bd4f51e34f3f3e684fbdea8a7'
+    },
+    'twitter': {
+        'id': '3RzWQclolxWZIMq5LJqzRZPTl',
+        'secret': 'm9TEd58DSEtRrZHpz2EjrV9AhsBRxKMo8m3kuIZj3zLwzwIimt'
+    }
+}

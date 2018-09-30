@@ -20,6 +20,7 @@ from config import default
 from api.util import log_utils
 
 db = SQLAlchemy()
+
 flask_bcrypt = Bcrypt()
 
 api = Api(version='1.0', title='Baking-Lyrics API',

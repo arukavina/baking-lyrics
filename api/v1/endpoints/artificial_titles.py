@@ -34,7 +34,7 @@ class ArtificialTitleCollection(Resource):
 class ArtificialTitleItem(Resource):
 
     @ns.marshal_with(artificial_title)
-    def get(self, song_id, lang='es'):
+    def get(self, song_id, lang='en'):
         """
         Returns a generated title for the required lang and song_id.
         """
