@@ -33,10 +33,9 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - Put the file under: `/api/resources/models/` and `/api/resources/` respectively 
 - Add the following ENV variable into your favourite OS: `APP_CONFIG_FILE=/Users/<your name>/GitHub/Baking-Lyrics/config/development.py`
 - Add the following ENV variable into your favourite OS: `PYTHONPATH=/Users/arukavina/github/baking-lyrics`
-- Run cd /api; 
-db 
-
-- Run manage.py run
+- Run `cd /api`
+- Run `refresh_database.py` 
+- Run `manage.py run`
 
 # Models
 
