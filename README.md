@@ -28,16 +28,15 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - Create a python venv in your SO
 - Source it: `source bar/foo/venv/your-venv/bin/activate`
 - Run `pip install -r requirements/dev.txt`
-- Create the instance folder in the `api` dir and add a file named: config.py under it.
-- Add the following content to to it:
-```python
-SECRET_KEY = ''
-STRIPE_API_KEY = ''
-```
 - Request the current models to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
-- Put the file under: `/api/resources/`
+- Request the songsdata.csv to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
+- Put the file under: `/api/resources/models/` and `/api/resources/` respectively 
 - Add the following ENV variable into your favourite OS: `APP_CONFIG_FILE=/Users/<your name>/GitHub/Baking-Lyrics/config/development.py`
-- Run /run.py
+- Add the following ENV variable into your favourite OS: `PYTHONPATH=/Users/arukavina/github/baking-lyrics`
+- Run cd /api; 
+db 
+
+- Run manage.py run
 
 # Models
 
