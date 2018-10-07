@@ -117,24 +117,25 @@ class ArtificialTitle(db.Model):
 
 class ArtificialSong(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title_id = db.Column(db.Integer, db.ForeignKey(ArtificialTitle.id))
+    artificial_title_id = db.Column(db.Integer, db.ForeignKey(ArtificialTitle.id))
     artificial_title = db.relationship(ArtificialTitle, backref=db.backref('artificialSong', lazy='dynamic'))
     lyrics = db.Column(db.Text)
     model = db.Column(db.String(50))
     creation_date = db.Column(db.DateTime)
     user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     user = db.relationship(User, backref=db.backref('artificialSong', lazy='dynamic'))
-    artist_id = db.Column(db.Integer, db.ForeignKey(Artist.id))
-    artist = db.relationship(Artist, backref=db.backref('artificialSong', lazy='dynamic'))
+    base_artist_id = db.Column(db.Integer, db.ForeignKey(Artist.id))
+    base_artist = db.relationship(Artist, backref=db.backref('artificialSong', lazy='dynamic'))
 
-    def __init__(self, title, lyrics, model, creation_date=None):
-        self.artificial_title = title
+    def __init__(self, artificial_title, lyrics, model, base_artist, creation_date=None):
+        self.artificial_title = artificial_title
         self.lyrics = lyrics
         self.model = model
+        self.base_artist = base_artist
 
         if creation_date is None:
             creation_date = datetime.utcnow()
         self.creation_date = creation_date
 
     def __repr__(self):
-        return '<ArtificialSong %r>' % self.artificial_title
+        return '<ArtificialSong named: %r>' % self.artificial_title.title

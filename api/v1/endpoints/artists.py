@@ -1,9 +1,13 @@
 # Generic
 import logging
 
+# Libs
 from flask import request
 from flask_restplus import Resource
+from flask_restplus import abort
+from sqlalchemy.orm.exc import NoResultFound
 
+# Own
 from api.database.models import Artist
 from api.v1.models.business import create_artist, update_artist, delete_artist
 from api.v1.parsers import pagination_arguments
@@ -51,16 +55,20 @@ class ArtistItem(Resource):
         """
         Returns a artist artist.
         """
-        return Artist.query.filter(Artist.id == id).one()
+
+        try:
+            return Artist.query.filter(Artist.id == id).one()
+        except NoResultFound:
+            abort(404, 'Artist not found.')
 
     @api.expect(artist)
     @api.response(204, 'Artist successfully updated.')
-    def put(self, id):
+    def put(self, artist):
         """
         Updates a artist.
         """
         data = request.json
-        update_artist(id, data)
+        update_artist(artist.id, data)
         return None, 204
 
     @api.response(204, 'Artist successfully deleted.')
@@ -70,6 +78,30 @@ class ArtistItem(Resource):
         """
         delete_artist(id)
         return None, 204
+
+
+@ns.route('/search/<partial_artist_name>')
+@api.response(404, 'Artist not found.')
+@api.response(400, 'A minimum of 3 characters are needed.')
+class ArtistItem(Resource):
+
+    @api.marshal_with(artist)
+    def get(self, partial_artist_name):
+        """
+        Returns a artist artist.
+        """
+
+        if len(partial_artist_name) < 3:
+            abort(400, 'A minimum of 3 characters are needed.')
+
+        artists = Artist.query
+        artists = artists.filter(Artist.name.like('%' + partial_artist_name + '%'))
+        artists = artists.order_by(Artist.name).all()
+
+        if len(artists) == 0:
+            abort(404, 'Artist not found')
+        else:
+            return artists
 
 
 @ns.route('/archive/<int:year>/')

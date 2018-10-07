@@ -13,6 +13,7 @@ RESTPLUS_ERROR_404_HELP = False
 # SQLAlchemy settings
 SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join('resources', 'flask_bakinglyrics_main.db')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
+DATA_FILE_PATH = r'resources/songdata.csv'
 
 # Log
 MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
