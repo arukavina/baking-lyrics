@@ -5,6 +5,7 @@ import logging
 # Libs
 from flask import request
 from flask_restplus import Resource
+from flask_restplus import abort
 
 # Own
 from api.database.models import Song

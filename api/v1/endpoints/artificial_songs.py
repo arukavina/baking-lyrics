@@ -10,7 +10,6 @@ from flask_restplus import Resource
 from flask_restplus import abort
 
 # Own
-from api import v1
 from api.v1 import api
 from api.v1 import db
 from api.database.models import ArtificialSong
@@ -47,7 +46,11 @@ class ArtificialSongItem(Resource):
         """
         Returns a existing generated song.
         """
-        return ArtificialSong.query.filter(ArtificialSong.id == song_id).one()
+
+        try:
+            return ArtificialSong.query.filter(ArtificialSong.id == song_id).one()
+        except NoResultFound:
+            abort(404, 'Lyric does not exist.')
 
 
 @ns.route('/generate/<lang>/words/<int:number_words>/')
@@ -75,10 +78,10 @@ class ArtificialSongItem(Resource):
                 number_artificial_songs
             )).one()
             return random_artificial_song
-        except NoResultFound as e:
-            raise NoResultFound(404, e)
+        except NoResultFound:
+            abort(404, 'Lyric does not exist.')
         except ValueError as e:
-            abort(500, e)
+            abort(500, "Internal Server Error: {}".format(e))
 
         # band = Artist.query.filter(ArtificialSong.id == band_id).one()
 #         if band is None:
@@ -169,8 +172,10 @@ class ArtificialSongItem(Resource):
                 number_artificial_songs
             )).one()
             return random_artificial_song
-        except NoResultFound as e:
-            abort(404, e)
+        except NoResultFound:
+            abort(404, 'Lyric does not exist.')
+        except ValueError as e:
+            abort(500, "Internal Server Error: {}".format(e))
 
 
 def get_model_class(model):

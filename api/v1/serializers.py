@@ -54,10 +54,10 @@ user = api.model('User', {
 
 artificial_song = api.model('ArtificialSong', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of an artificial song'),
-    'title': fields.Nested(artificial_title),
+    'artificial_title': fields.Nested(artificial_title),
     'lyrics': fields.String(required=True, description='Artificial song lyrics'),
     'model': fields.String(required=True, description='Model used'),
     'creation_date': fields.DateTime,
     'user': fields.Nested(user),
-    'artist': fields.Nested(artist),
+    'base_artist': fields.Nested(artist),
 })
