@@ -5,6 +5,8 @@ import logging
 # Libs
 from flask import request
 from flask_restplus import Resource
+from flask_restplus import abort
+from sqlalchemy.orm.exc import NoResultFound
 
 # Own
 from api.database.models import Genre
@@ -39,20 +41,23 @@ class GenreCollection(Resource):
         return None, 201
 
 
-@ns.route('/<int:id>')
+@ns.route('/<int:genre_id>')
 @api.response(404, 'Genre not found.')
 class GenreItem(Resource):
 
     @api.marshal_with(genre)
-    def get(self, id):
+    def get(self, genre_id):
         """
         Returns a genre with a list of band.
         """
-        return Genre.query.filter(Genre.id == id).one()
+        try:
+            return Genre.query.filter(Genre.id == genre_id).one()
+        except NoResultFound:
+            abort(404, 'Genre not found.')
 
     @api.expect(genre)
     @api.response(204, 'Genre successfully updated.')
-    def put(self, id):
+    def put(self, genre_id):
         """
         Updates a genre.
         Use this method to change the name of a genre.
@@ -65,12 +70,13 @@ class GenreItem(Resource):
         * Specify the ID of the genre to modify in the request URL path.
         """
         data = request.json
-        update_genre(id, data)
+        update_genre(genre_id, data)
         return None, 204
 
     @api.response(204, 'Genre successfully deleted.')
-    def delete(self, id):
+    def delete(self, genre_id):
         """
         Deletes a genre.
         """
-        delete_genre(id)
+        delete_genre(genre_id)
+        return None, 204

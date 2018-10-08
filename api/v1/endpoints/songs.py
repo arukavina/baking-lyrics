@@ -6,6 +6,7 @@ import logging
 from flask import request
 from flask_restplus import Resource
 from flask_restplus import abort
+from sqlalchemy.orm.exc import NoResultFound
 
 # Own
 from api.database.models import Song
@@ -39,20 +40,23 @@ class SongCollection(Resource):
         return None, 201
 
 
-@ns.route('/<int:id>')
+@ns.route('/<int:song_id>')
 @ns.response(404, 'Song not found.')
 class SongItem(Resource):
 
     @ns.marshal_with(song)
-    def get(self, id):
+    def get(self, song_id):
         """
         Returns a song with a list of bands.
         """
-        return Song.query.filter(Song.id == id).one()
+        try:
+            return Song.query.filter(Song.id == song_id).one()
+        except NoResultFound:
+            abort(404, 'Song not found.')
 
     @ns.expect(song)
     @ns.response(204, 'Song successfully updated.')
-    def put(self, id):
+    def put(self, song_id):
         """
         Updates a song.
         Use this method to change the name of a song.
@@ -65,12 +69,14 @@ class SongItem(Resource):
         * Specify the ID of the song to modify in the request URL path.
         """
         data = request.json
-        update_song(id, data)
+        update_song(song_id, data)
         return None, 204
 
     @ns.response(204, 'Song successfully deleted.')
-    def delete(self, id):
+    def delete(self, song_id):
         """
         Deletes a song.
         """
-        delete_song(id)
+        delete_song(song_id)
+        return None, 204
+

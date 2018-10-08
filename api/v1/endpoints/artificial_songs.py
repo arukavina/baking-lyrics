@@ -16,6 +16,7 @@ from api.database.models import ArtificialSong
 from api.v1.serializers import artificial_song
 
 logger = logging.getLogger('baking-api')
+
 ns = api.namespace('artificial_songs', description='Operations related to artificially generated songs')
 
 # TODO: Move to app cache.
@@ -37,18 +38,18 @@ class ArtificialSongCollection(Resource):
         return songs
 
 
-@ns.route('/<int:song_id>')
+@ns.route('/<int:artificial_song_id>')
 @ns.response(404, 'ArtificialSong not found.')
 class ArtificialSongItem(Resource):
 
     @ns.marshal_with(artificial_song)
-    def get(self, song_id):
+    def get(self, artificial_song_id):
         """
         Returns a existing generated song.
         """
 
         try:
-            return ArtificialSong.query.filter(ArtificialSong.id == song_id).one()
+            return ArtificialSong.query.filter(ArtificialSong.id == artificial_song_id).one()
         except NoResultFound:
             abort(404, 'Lyric does not exist.')
 
