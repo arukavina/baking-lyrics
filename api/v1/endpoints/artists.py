@@ -14,7 +14,7 @@ from api.v1.parsers import pagination_arguments
 from api.v1 import api
 from api.v1.serializers import artist, page_of_artists
 
-logger = logging.getLogger('baking-lyrics')
+logger = logging.getLogger('baking-api')
 
 ns = api.namespace('artists', description='Operations related to artists')
 
@@ -38,52 +38,56 @@ class ArtistsCollection(Resource):
         return artists_page
 
     @api.expect(artist)
+    @api.response(404, 'Artist not found.')
     def post(self):
         """
         Creates a new artist.
         """
-        create_artist(request.json)
+        try:
+            create_artist(request.json)
+        except AttributeError:
+            abort(400, 'Bad request')
+
         return None, 201
 
 
-@ns.route('/<int:id>')
+@ns.route('/<int:artist_id>')
 @api.response(404, 'Artist not found.')
 class ArtistItem(Resource):
 
     @api.marshal_with(artist)
-    def get(self, id):
+    def get(self, artist_id):
         """
         Returns a artist artist.
         """
-
         try:
-            return Artist.query.filter(Artist.id == id).one()
+            return Artist.query.filter(Artist.id == artist_id).one()
         except NoResultFound:
             abort(404, 'Artist not found.')
 
     @api.expect(artist)
     @api.response(204, 'Artist successfully updated.')
-    def put(self, artist):
+    def put(self, artist_id):
         """
         Updates a artist.
         """
         data = request.json
-        update_artist(artist.id, data)
+        update_artist(artist_id, data)
         return None, 204
 
     @api.response(204, 'Artist successfully deleted.')
-    def delete(self, id):
+    def delete(self, artist_id):
         """
         Deletes artist.
         """
-        delete_artist(id)
+        delete_artist(artist_id)
         return None, 204
 
 
 @ns.route('/search/<partial_artist_name>')
 @api.response(404, 'Artist not found.')
 @api.response(400, 'A minimum of 3 characters are needed.')
-class ArtistItem(Resource):
+class GetArtistByName(Resource):
 
     @api.marshal_with(artist)
     def get(self, partial_artist_name):
@@ -130,19 +134,3 @@ class ArtistsArchiveCollection(Resource):
         artists_page = artists_query.paginate(page, per_page, error_out=False)
 
         return artists_page
-
-# @ns.route('/api/artists/<mask>', methods=['GET'])
-# @limiter.limit("100/day;15/hour;2/minute")
-# def get_artists_by_mask(mask):
-#     """
-#     Returns the list of artists if the artist name contains mask parameter
-#     :return: json of artists
-#     """
-#     try:
-#         mask_lower = mask.lower()
-#         return jsonify(artists=[e.serialize() for e in artists if
-#                               e.name.lower().find(mask_lower) != -1])
-#     except HTTPException as error:
-#         abort(500, "Error filtering artists: " + str(error))
-#     except ValueError as error:
-#         abort(500, "Error parsing artists: " + str(error))
