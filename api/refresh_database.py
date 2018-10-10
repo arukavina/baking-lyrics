@@ -33,6 +33,8 @@ pop = Genre(name='Pop')
 
 def refresh():
 
+    print("Loading songs data to internal DB")
+
     for i, song in song_data.iterrows():
 
         try:
@@ -60,7 +62,7 @@ def create_artificial():
 
     number_artificial_songs = 30
 
-    print("Creating {} artificial songs for deployment and tests".format(number_artificial_songs))
+    print("Creating {} pre-existing artificial songs for deployment and tests".format(number_artificial_songs))
 
     for i, song in song_data.iterrows():
 
@@ -95,16 +97,8 @@ def create_artificial():
     db.session.flush()
     db.session.commit()
 
-    print(artificial_title)
-    print(artificial_title.id)
-
-    print(artificial_song)
-    print(artificial_song.artificial_title.title)
-    print(artificial_song.artificial_title.id)
-    print(artificial_song.artificial_title_id)
-
 
 if __name__ == '__main__':
-    # refresh()
+    refresh()
     create_artificial()
 
