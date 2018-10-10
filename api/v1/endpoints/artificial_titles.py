@@ -38,10 +38,10 @@ class ArtificialTitleItem(Resource):
         """
         Returns a generated title for the required lang and song_id.
         """
+        if lang != 'en':
+            abort(400, 'Artificial Titles can only be generated in english')
 
         model = ModelsManager().get_model('titles')
-
-        # TODO: When available change bny ArtificialSong
 
         try:
             lyrics_text = ArtificialSong.query.filter(ArtificialSong.id == song_id).one().lyrics

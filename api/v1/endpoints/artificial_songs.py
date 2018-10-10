@@ -72,6 +72,9 @@ class ArtificialSongItem(Resource):
             artist_id
         ))
 
+        if lang != 'en':
+            abort(400, 'Artificial Songs can only be generated in english')
+
         try:
             number_artificial_songs = db.session.query(ArtificialSong.id).count()
             random_artificial_song = ArtificialSong.query.filter(ArtificialSong.id == random.randint(
@@ -165,6 +168,9 @@ class ArtificialSongItem(Resource):
             number_words,
             artist_id
         ))
+
+        if lang != 'en':
+            abort(400, 'Artificial Songs can only be generated in english')
 
         try:
             number_artificial_songs = db.session.query(ArtificialSong.id).count()
