@@ -2,8 +2,8 @@ language: python
 python:
   - '3.6'
 #install: "pip install -r requirements/prd.txt"
-#script:
-#  - coverage erase
+script:
+  - coverage erase
 #  - coverage run baking/tests/test_*.py && coverage html
 #after_success:
 #  - codecov -t 9f6d1821-5233-43d2-92b4-a4b72eb5ea3d
@@ -22,8 +22,8 @@ branches:
 deploy:
   provider: codedeploy
   revision_type: github
-  access_key_id: AKIAI5MA6HN6MSXJWMSA
-  secret_access_key: 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
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
   application: baking-api
   deployment_group: staging
   region: "us-east-1"
