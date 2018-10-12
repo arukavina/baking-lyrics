@@ -61,13 +61,17 @@ class GenreItem(Resource):
         """
         Updates a genre.
         Use this method to change the name of a genre.
-        * Send a JSON object with the new name in the request body.
+        Send a JSON object with the new name in the request body.
+
         ```
         {
+
           "name": "New Genre Name"
+
         }
         ```
-        * Specify the ID of the genre to modify in the request URL path.
+
+        Specify the ID of the genre to modify in the request URL path.
         """
         data = request.json
         update_genre(genre_id, data)

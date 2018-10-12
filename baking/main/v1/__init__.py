@@ -18,6 +18,12 @@ logger = log_utils.get_logger('baking-api')
 
 
 def init_app(app, api):
+    """
+
+    :param app:
+    :param api:
+    :return:
+    """
 
     logger.info("Importing Blueprints...")
     blueprint = Blueprint('api', __name__, url_prefix='/api/v1')

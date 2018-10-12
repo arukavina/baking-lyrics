@@ -17,7 +17,7 @@ ns = api.namespace('general', description='General API operations')
 
 
 @ns.route('/')
-class Index(Resource):
+class Inde3x(Resource):
 
     def get(self):
         """

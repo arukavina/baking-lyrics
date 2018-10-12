@@ -4,6 +4,11 @@ from baking.main.database.models import Artist, Genre, Song
 
 
 def create_song(data):
+    """
+
+    :param data:
+    :return:
+    """
     title = data.get('title')
     lyrics = data.get('body')
     pub_date = data.get('pub_date')
@@ -17,6 +22,12 @@ def create_song(data):
 
 
 def update_song(song_id, data):
+    """
+
+    :param song_id:
+    :param data:
+    :return:
+    """
     song = Song.query.filter(Song.id == song_id).one()
     song.title = data.get('title')
     song.lyrics = data.get('lyrics')
@@ -30,12 +41,22 @@ def update_song(song_id, data):
 
 
 def delete_song(song_id):
+    """
+
+    :param song_id:
+    :return:
+    """
     post = Song.query.filter(Song.id == song_id).one()
     db.session.delete(post)
     db.session.commit()
 
 
 def create_artist(data):
+    """
+
+    :param data:
+    :return:
+    """
     name = data.get('name')
     country = data.get('country')
     pub_date = data.get('pub_date')
