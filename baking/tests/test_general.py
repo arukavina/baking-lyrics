@@ -3,19 +3,14 @@ import unittest
 from flask import Blueprint
 from flask_testing import TestCase
 
-from baking.main.v1 import create_app, api, limiter
-# from api.v1.endpoints.artists import ns as bands_namespace
-# from api.v1.endpoints.genres import ns as genres_namespace
-# from api.v1.endpoints.songs import ns as songs_namespace
-# from api.v1.endpoints.artificial_titles import ns as artificial_titles_namespace
-# from api.v1.endpoints.artificial_songs import ns as artificial_songs_namespace
-from baking.main.v1 import ns as general_namespace
+from baking.main import create_app, api, limiter
+from baking.main.v1.endpoints.general import ns as general_namespace
 
 
 class TestViews(TestCase):
     def create_app(self):
 
-        app = create_app('../config/testing.py')
+        app = create_app('config/testing.py')
 
         app.app_context().push()
 
@@ -24,11 +19,6 @@ class TestViews(TestCase):
         blueprint = Blueprint('api', __name__, url_prefix='/api/v1')
         api.init_app(blueprint)
 
-        # api.add_namespace(bands_namespace)
-        # api.add_namespace(genres_namespace)
-        # api.add_namespace(songs_namespace)
-        # api.add_namespace(artificial_titles_namespace)
-        # api.add_namespace(artificial_songs_namespace)
         api.add_namespace(general_namespace)
 
         app.register_blueprint(blueprint)
@@ -61,9 +51,8 @@ class TestViews(TestCase):
         art = response.json["artist"][0]
         # reading the name of the band in the random response
         print("\n\nResponse: " + art["name"])
-        bands = ["ABBA","Ace Of Base","Adam Sandler"]
+        bands = ["ABBA", "Ace Of Base", "Adam Sandler"]
         assert(bands.count(art["name"]) > 0)
-
 
 
 if __name__ == '__main__':
