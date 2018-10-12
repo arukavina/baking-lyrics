@@ -1,6 +1,6 @@
 # requirements/dev.txt
 
--r prod.txt
+-r prd.txt
 
 # Debug
 Flask-DebugToolbar==0.10.1
