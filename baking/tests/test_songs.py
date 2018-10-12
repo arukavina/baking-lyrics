@@ -3,8 +3,8 @@ import unittest
 from flask import Blueprint
 from flask_testing import TestCase
 
-from api.v1 import create_app, api, limiter
-from api.v1.endpoints.songs import ns as songs_namespace
+from baking.main.v1 import create_app, api, limiter
+from baking.main.v1 import ns as songs_namespace
 
 
 class TestViews(TestCase):
@@ -39,8 +39,8 @@ class TestViews(TestCase):
 
     def test_song_get(self):
 
-        from api.database.models import Song
-        from api.v1.serializers import song
+        from baking.main.database.models import Song
+        from baking.main.v1 import song
         from flask_restplus import marshal
 
         id_testing = 1

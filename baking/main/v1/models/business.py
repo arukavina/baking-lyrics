@@ -1,6 +1,6 @@
 # Own
-from api.v1 import db
-from api.database.models import Artist, Genre, Song
+from baking.main import db
+from baking.main.database.models import Artist, Genre, Song
 
 
 def create_song(data):

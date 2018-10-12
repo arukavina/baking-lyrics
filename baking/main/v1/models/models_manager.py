@@ -1,4 +1,4 @@
-from api.v1.models.machine_learning import TitleLSTMModel
+from baking.main.v1.models.machine_learning import TitleLSTMModel
 from flask import current_app
 
 

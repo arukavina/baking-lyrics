@@ -9,10 +9,10 @@ from flask_restplus import abort
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from api.database.models import Song
-from api.v1.models.business import create_song, update_song, delete_song
-from api.v1 import api
-from api.v1.serializers import song
+from baking.main import api
+from baking.main.database.models import Song
+from baking.main.v1.models.business import create_song, update_song, delete_song
+from baking.main.v1.serializers import song
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('songs', description='Operations related to songs')

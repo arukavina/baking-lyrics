@@ -7,7 +7,7 @@ import json
 import os.path
 
 # Own
-from api.util import file_utils as fu
+from baking.main.util import file_utils as fu
 
 REQUIRED_KEYS = (
     "LOG_PATH",

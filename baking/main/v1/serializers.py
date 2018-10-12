@@ -1,6 +1,6 @@
 from flask_restplus import fields
 
-from api.v1 import api
+from baking.main import api
 
 artist = api.model('Artist', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of a artist'),

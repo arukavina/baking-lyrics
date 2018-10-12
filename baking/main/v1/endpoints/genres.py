@@ -9,10 +9,10 @@ from flask_restplus import abort
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from api.database.models import Genre
-from api.v1.models.business import create_genre, delete_genre, update_genre
-from api.v1 import api
-from api.v1.serializers import genre, genres_with_artists
+from baking.main import api
+from baking.main.database.models import Genre
+from baking.main.v1.models.business import create_genre, delete_genre, update_genre
+from baking.main.v1.serializers import genre, genres_with_artists
 
 logger = logging.getLogger('baking-api')
 

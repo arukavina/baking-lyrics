@@ -4,20 +4,22 @@
 import datetime
 import traceback
 import os
+import coverage
 
 # Libs
-from flask import Flask
+from flask import Flask, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_restplus import Api
+from flask_login import LoginManager
 
 from sqlalchemy.orm.exc import NoResultFound
 from config import default
 
 # Own
-from api.util import log_utils
+from baking.main.util import log_utils
 
 db = SQLAlchemy()
 
@@ -47,12 +49,12 @@ def database_not_found_error_handler():
     return {'message': 'A database result was required but none was found.'}, 404
 
 
-def create_app(app_config_file):
+def create_app(app_config_file=None):
 
     print('Current wd={}'.format(os.getcwd()))
     app = Flask("baking-lyrics",
-                static_folder="static/dist",
-                template_folder="static")
+                static_folder="baking/static/dist",
+                template_folder="baking/static")
 
     # Configure
 
@@ -67,6 +69,8 @@ def create_app(app_config_file):
     else:
         app.config.from_pyfile(app_config_file)
 
+    print(app.config['SQLALCHEMY_DATABASE_URI'])
+
     # Setting up logger
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
     log_utils.setup_logging('baking-api', time_stamp, app.config)
@@ -80,5 +84,35 @@ def create_app(app_config_file):
 
     # Bcrypt
     flask_bcrypt.init_app(app)
+
+    # Other
+    from baking.main import v1
+
+    app = v1.init_app(app, api)
+
+    app.app_context().push()
+
+    # Test coverage configuration
+    COV = coverage.coverage(
+        branch=True,
+        include='baking/*',
+        omit=[
+            'baking/resources/*.py',
+            'baking/static/*.py',
+            'baking/migrations/*.py'
+        ]
+    )
+    COV.start()
+
+    # Login Manager
+    lm = LoginManager(app)
+    lm.login_view = 'login'
+
+    @app.route("/")
+    @limiter.exempt
+    def index():
+        return render_template("index.html")
+
+    app.app_context().push()
 
     return app

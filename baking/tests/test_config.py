@@ -4,7 +4,7 @@ import unittest
 from flask import current_app
 from flask_testing import TestCase
 
-from api.manage import app
+from baking.manage import app
 
 
 class TestDevelopmentConfig(TestCase):

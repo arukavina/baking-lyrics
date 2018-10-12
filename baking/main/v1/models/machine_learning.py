@@ -9,7 +9,7 @@ import os
 import datetime
 
 # Own
-from api.util import log_utils
+from baking.main.util import log_utils
 
 logger = log_utils.get_logger('api')
 

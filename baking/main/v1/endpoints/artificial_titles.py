@@ -7,10 +7,10 @@ from flask_restplus import Resource, abort
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from api.v1 import api, db
-from api.v1.serializers import artificial_title
-from api.v1.models.models_manager import ModelsManager
-from api.database.models import ArtificialTitle, ArtificialSong
+from baking.main import api, db
+from baking.main.v1.serializers import artificial_title
+from baking.main.v1.models.models_manager import ModelsManager
+from baking.main.database.models import ArtificialTitle, ArtificialSong
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_titles', description='Operations related to artificially generated titles')
