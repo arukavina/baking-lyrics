@@ -5,9 +5,10 @@ Baking Lyrics
 
 [![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest)
 
-[![Build Status](https://travis-ci.org/arukavina/travis_python_test.svg?branch=master)](https://travis-ci.org/arukavina/travis_python_test)
+[![Build Status](https://travis-ci.org/arukavina/baking-lyrics.svg?branch=master)](https://travis-ci.org/arukavina/baking-lyrics)
 
-[![codecov](https://codecov.io/gh/arukavina/travis_python_test/branch/master/graph/badge.svg)](https://codecov.io/gh/arukavina/travis_python_test)
+[![codecov](https://codecov.io/gh/arukavina/baking-lyrics/branch/master/graph/badge.svg)](https://codecov.io/gh/arukavina/baking-lyrics)
+
 
 # Intro
 
