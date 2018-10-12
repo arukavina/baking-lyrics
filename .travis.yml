@@ -1,9 +1,9 @@
 language: python
 python:
   - '3.6'
-install: "pip install -r requirements/prd.txt"
-script:
-  - coverage erase
+#install: "pip install -r requirements/prd.txt"
+#script:
+#  - coverage erase
 #  - coverage run baking/tests/test_*.py && coverage html
 #after_success:
 #  - codecov -t 9f6d1821-5233-43d2-92b4-a4b72eb5ea3d
@@ -26,4 +26,4 @@ deploy:
   secret_access_key: Be6PRpsYhg4kFIaHOsGKtRkT9i/VGcxSri7zt9HA
   application: baking-api
   deployment_group: staging
-  region: "east-1"
+  region: "us-east-1"
