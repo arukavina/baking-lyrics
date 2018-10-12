@@ -10,10 +10,9 @@ from flask_restplus import Resource
 from flask_restplus import abort
 
 # Own
-from api.v1 import api
-from api.v1 import db
-from api.database.models import ArtificialSong
-from api.v1.serializers import artificial_song
+from baking.main import api, db
+from baking.main.database.models import ArtificialSong
+from baking.main.v1.serializers import artificial_song
 
 logger = logging.getLogger('baking-api')
 

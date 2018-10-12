@@ -11,9 +11,9 @@ RESTPLUS_MASK_SWAGGER = False
 RESTPLUS_ERROR_404_HELP = False
 
 # SQLAlchemy settings
-SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join('resources', 'flask_bakinglyrics_main.db')
+SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join('baking/resources', 'flask_bakinglyrics_main.db')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
-DATA_FILE_PATH = r'resources/songdata.csv'
+DATA_FILE_PATH = r'baking/resources/songdata.csv'
 
 # Log
 MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
@@ -29,12 +29,12 @@ LYRICS_LSTM_MODEL = r'LyricsLSTMModel'
 NGRAMS_LSTM_MODEL = r'NGramsModel'
 
 # Lyrics - LSTM
-LYRICS_LSTM_MODEL_FILE_PATH = r'resources/text_generator_dummy.yaml'
-LYRICS_LSTM_WEIGHTS_FILE_PATH = r'resources/text_generator_dummy_weights.h5'
-LYRICS_LSTM_SEED_FILE_PATH = r'resources/martin-fierro.txt'
+LYRICS_LSTM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
+LYRICS_LSTM_WEIGHTS_FILE_PATH = r'baking/resources/text_generator_dummy_weights.h5'
+LYRICS_LSTM_SEED_FILE_PATH = r'baking/resources/martin-fierro.txt'
 
 # Lyrics - NGran
-LYRICS_NGRAM_MODEL_FILE_PATH = r'resources/text_generator_dummy.yaml'
+LYRICS_NGRAM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
 
 # Title
 TITLE_LSTM_MODEL = r'TitleLSTMModel'

@@ -2,12 +2,12 @@
 import logging
 
 # Own
-from api.v1 import create_app
-from api.util import http_handler as http
+from baking.main.v1 import create_app
+from baking.main.util import http_handler as http
 
 app = create_app(None)
 
-logger = logging.getLogger('baking-lyrics')
+logger = logging.getLogger('baking-api')
 
 
 @app.errorhandler(400)

@@ -3,13 +3,13 @@ import unittest
 from flask import Blueprint
 from flask_testing import TestCase
 
-from api.v1 import create_app, api, limiter
+from baking.main.v1 import create_app, api, limiter
 # from api.v1.endpoints.artists import ns as bands_namespace
 # from api.v1.endpoints.genres import ns as genres_namespace
 # from api.v1.endpoints.songs import ns as songs_namespace
 # from api.v1.endpoints.artificial_titles import ns as artificial_titles_namespace
 # from api.v1.endpoints.artificial_songs import ns as artificial_songs_namespace
-from api.v1.endpoints.general import ns as general_namespace
+from baking.main.v1 import ns as general_namespace
 
 
 class TestViews(TestCase):

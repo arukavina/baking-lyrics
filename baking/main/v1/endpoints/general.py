@@ -7,10 +7,9 @@ from flask_restplus import Resource
 from flask import render_template
 
 # Own
-from api.database.models import Song
-from api.v1 import db
-from api.v1 import api
-from api.v1.serializers import song
+from baking.main import db, api
+from baking.main.database.models import Song
+from baking.main.v1.serializers import song
 
 logger = logging.getLogger('baking-api')
 

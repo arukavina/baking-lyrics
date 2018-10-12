@@ -7,8 +7,8 @@ from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from api.v1 import db
-from api.database.models import Genre, Artist, Song, ArtificialSong, ArtificialTitle
+from baking.main.v1 import db
+from baking.main.database.models import Genre, Artist, Song, ArtificialSong, ArtificialTitle
 
 import os
 

@@ -1,7 +1,7 @@
 # Generic
 from datetime import datetime
 
-from api.v1 import db, flask_bcrypt
+from baking.main import db, flask_bcrypt
 from flask_login import UserMixin
 
 
