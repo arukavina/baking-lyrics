@@ -15,8 +15,13 @@ logger = log_utils.get_logger('api')
 
 
 class Model(object, metaclass=abc.ABCMeta):
+
     @abc.abstractmethod
     def __init__(self, model_file_path):
+        """
+
+        :param model_file_path:
+        """
 
         logger.info('Checking if "models" is a valid path: {}'.format(model_file_path))
         if not os.path.exists(model_file_path):
@@ -44,7 +49,13 @@ class Model(object, metaclass=abc.ABCMeta):
 
 
 class NGramsModel(Model):
+
     def __init__(self, model_file_path, seed_file_path="../data/corpus.txt"):
+        """
+
+        :param model_file_path:
+        :param seed_file_path:
+        """
 
         logger.info('Checking if "seed_file_path" is a valid path: {}'.format(seed_file_path))
         if not os.path.exists(seed_file_path):
@@ -60,6 +71,10 @@ class NGramsModel(Model):
         self.length = None
 
     def load_model(self):
+        """
+
+        :return:
+        """
 
         self.text = (open(self.seed_file_path).read())
         self.text = self.text.lower().strip()
@@ -78,6 +93,14 @@ class NGramsModel(Model):
         logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
+        """
+
+        :param lang:
+        :param length:
+        :param seed:
+        :param kargs:
+        :return:
+        """
 
         if lang != 'es':
             raise NotImplementedError
@@ -99,7 +122,14 @@ class NGramsModel(Model):
 
 
 class LyricsLSTMModel(Model):
+
     def __init__(self, model_file_path, weights_file_path, seed_file_path="../data/martin-fierro.txt"):
+        """
+
+        :param model_file_path:
+        :param weights_file_path:
+        :param seed_file_path:
+        """
 
         logger.info('Checking if "weights_file_path" is a valid path: {}'.format(weights_file_path))
         if not os.path.exists(weights_file_path):
@@ -121,6 +151,10 @@ class LyricsLSTMModel(Model):
         self.length = None
 
     def load_model(self):
+        """
+
+        :return:
+        """
         from keras.models import model_from_yaml
 
         self.text = (open(self.seed_file_path).read())
@@ -164,6 +198,14 @@ class LyricsLSTMModel(Model):
         logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
+        """
+
+        :param lang:
+        :param length:
+        :param seed:
+        :param kargs:
+        :return:
+        """
 
         import numpy as np
         from keras.utils import np_utils
@@ -247,11 +289,20 @@ class LyricsLSTMModel(Model):
 
 
 class TitleLSTMModel(Model):
+
     def __init__(self, model_file_path):
+        """
+
+        :param model_file_path:
+        """
         super().__init__(model_file_path)
         self.tokenizer = None
 
     def load_model(self):
+        """
+
+        :return:
+        """
         from keras.models import load_model
         import pickle
 
@@ -283,6 +334,15 @@ class TitleLSTMModel(Model):
         logger.info("Loaded model from disk")
 
     def generate_sentence(self, input_text='', temperature=0., max_output_sequence_lenght=8, number_of_titles=3, *kargs):
+        """
+
+        :param input_text:
+        :param temperature:
+        :param max_output_sequence_lenght:
+        :param number_of_titles:
+        :param kargs:
+        :return:
+        """
         import numpy as np
         from keras.preprocessing.sequence import pad_sequences
 
@@ -321,7 +381,6 @@ class TitleLSTMModel(Model):
     def __str__(self):
         from pprint import pprint
         pprint(vars(self))
-
 
 
 if __name__ == '__main__':
