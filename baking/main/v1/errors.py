@@ -2,7 +2,7 @@
 import logging
 
 # Own
-from baking.main.v1 import create_app
+from baking.main import create_app
 from baking.main.util import http_handler as http
 
 app = create_app(None)
