@@ -4,7 +4,6 @@
 import datetime
 import traceback
 import os
-import coverage
 
 # Libs
 from flask import Flask, render_template
@@ -69,8 +68,6 @@ def create_app(app_config_file=None):
     else:
         app.config.from_pyfile(app_config_file)
 
-    print(app.config['SQLALCHEMY_DATABASE_URI'])
-
     # Setting up logger
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
     log_utils.setup_logging('baking-api', time_stamp, app.config)
@@ -78,6 +75,7 @@ def create_app(app_config_file=None):
     log_utils.print_imports_versions(logger)
 
     logger.info('Starting {} server at http://{}:5000/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME']))
+    logger.info('Using DB: {}'.format(app.config['SQLALCHEMY_DATABASE_URI']))
 
     # Igniting DB
     db.init_app(app)
@@ -92,26 +90,9 @@ def create_app(app_config_file=None):
 
     app.app_context().push()
 
-    # Test coverage configuration
-    COV = coverage.coverage(
-        branch=True,
-        include='baking/*',
-        omit=[
-            'baking/resources/*.py',
-            'baking/static/*.py',
-            'baking/migrations/*.py'
-        ]
-    )
-    COV.start()
-
     # Login Manager
     lm = LoginManager(app)
     lm.login_view = 'login'
-
-    @app.route("/")
-    @limiter.exempt
-    def index():
-        return render_template("index.html")
 
     app.app_context().push()
 
