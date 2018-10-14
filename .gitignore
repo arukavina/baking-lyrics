@@ -104,7 +104,7 @@ ENV/
 *.h5
 
 # Data
-*.csv
+songdata.csv
 *.db
 *.zip
 
