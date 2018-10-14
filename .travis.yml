@@ -6,8 +6,10 @@ cache: pip
 branches:
   only:
     - master
-script:
+before_script:
   - export PYTHONPATH=$PWD
+  - python baking/refresh_database.py
+script:
   - coverage erase
   - coverage run baking/tests/test_general.py
 #  - coverage run -a baking/tests/test_config.py # No DB
