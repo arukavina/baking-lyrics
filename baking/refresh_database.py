@@ -1,26 +1,22 @@
 # Generic
 import datetime
 import pandas as pd
+import logging
 
 # Libs
-from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
-from baking.main.v1 import db
+from baking.main import db, create_app
 from baking.main.database.models import Genre, Artist, Song, ArtificialSong, ArtificialTitle
 
 import os
 
 print(os.getenv('PYTHONPATH'))
 
-app = Flask(__name__,
-            static_folder="static/dist",
-            template_folder="static")
+app = create_app(r'config/testing.py')
+logger = logging.getLogger('baking-api')
 
-# Configure
-# Load the default configuration
-app.config.from_object('config.default')
 song_data = pd.read_csv(app.config.get('DATA_FILE_PATH'))
 
 db.init_app(app)
@@ -33,7 +29,7 @@ pop = Genre(name='Pop')
 
 def refresh():
 
-    print("Loading songs data to internal DB")
+    logger.info("Loading songs data to internal DB")
 
     for i, song in song_data.iterrows():
 
@@ -52,9 +48,9 @@ def refresh():
                             )
                        )
         if i % 1000 == 0:
-            print("{}/{}".format(i, len(song_data)))
+            logger.info("{}/{}".format(i, len(song_data)))
             db.session.commit()
-    print("{}".format(len(song_data)))
+    logger.info("{}".format(len(song_data)))
     db.session.commit()
 
 
@@ -62,7 +58,7 @@ def create_artificial():
 
     number_artificial_songs = 30
 
-    print("Creating {} pre-existing artificial songs for deployment and tests".format(number_artificial_songs))
+    logger.info("Creating {} pre-existing artificial songs for deployment and tests".format(number_artificial_songs))
 
     for i, song in song_data.iterrows():
 
@@ -89,7 +85,7 @@ def create_artificial():
         db.session.add(artificial_song)
         db.session.flush()
 
-        print("{}/{}".format(i, number_artificial_songs))
+        logger.info("{}/{}".format(i, number_artificial_songs))
 
         if i >= number_artificial_songs:
             break

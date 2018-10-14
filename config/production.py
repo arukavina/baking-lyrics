@@ -3,5 +3,4 @@ SQLALCHEMY_ECHO = False
 TESTING = False
 PROPAGATE_EXCEPTIONS = None
 PRESERVE_CONTEXT_ON_EXCEPTION = None
-ENV = 'production22'
-SERVER_NAME = 'bakinglyrics.com'
+ENV = 'production'

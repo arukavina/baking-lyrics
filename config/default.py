@@ -31,7 +31,7 @@ NGRAMS_LSTM_MODEL = r'NGramsModel'
 # Lyrics - LSTM
 LYRICS_LSTM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
 LYRICS_LSTM_WEIGHTS_FILE_PATH = r'baking/resources/text_generator_dummy_weights.h5'
-LYRICS_LSTM_SEED_FILE_PATH = r'baking/resources/martin-fierro.txt'
+LYRICS_LSTM_SEED_FILE_PATH = r'baking/resources/songdata.csv'
 
 # Lyrics - NGran
 LYRICS_NGRAM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
@@ -40,7 +40,7 @@ LYRICS_NGRAM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
 TITLE_LSTM_MODEL = r'TitleLSTMModel'
 
 # Title - LSTM
-TITLE_LSTM_MODEL_FILE_PATH = ""
+TITLE_LSTM_MODEL_FILE_PATH = 'baking/resources/models/titler_v1'
 TITLE_LSTM_TOKENIZER_FILE_PATH = ""
 
 # OAuth
