@@ -1,24 +1,16 @@
 language: python
 python:
   - '3.6'
-#install: "pip install -r requirements/prd.txt"
+install: "pip install -r requirements/prd.txt"
 script:
   - coverage erase
-#  - coverage run baking/tests/test_*.py && coverage html
-#after_success:
-#  - codecov -t 9f6d1821-5233-43d2-92b4-a4b72eb5ea3d
+  - coverage run baking/tests/test_general.py
+  - coverage run -a baking/tests/test_config.py
+  - coverage run -a baking/tests/test_songs.py
+  - coverage html
 branches:
   only:
     - master
-#deploy:
-#  provider: elasticbeanstalk
-#  access_key_id: "Encrypted <access-key-id>="
-#  secret_access_key:
-#    secure: "Encypted <secret-access-key>="
-#  region: "us-east-1"
-#  app: "example-app-name"
-#  env: "example-app-environment"
-#  bucket_name: "the-target-S3-bucket
 deploy:
   provider: codedeploy
   revision_type: github

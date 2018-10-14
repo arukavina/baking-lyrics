@@ -1,29 +1,12 @@
 import unittest
-
-from flask import Blueprint
 from flask_testing import TestCase
 
-from baking.main.v1 import create_app, api, limiter
-from baking.main.v1 import ns as songs_namespace
-
+from baking.main import create_app
 
 class TestViews(TestCase):
     def create_app(self):
 
-        app = create_app('../config/development.py')
-
-        app.app_context().push()
-
-        limiter.init_app(app)
-
-        blueprint = Blueprint('api', __name__, url_prefix='/api/v1')
-        api.init_app(blueprint)
-
-        # Not including all namespaces to make tester lightweight.
-        api.add_namespace(songs_namespace)
-
-        app.register_blueprint(blueprint)
-
+        app = create_app('config/development.py')
         app.app_context().push()
 
         return app
@@ -40,7 +23,7 @@ class TestViews(TestCase):
     def test_song_get(self):
 
         from baking.main.database.models import Song
-        from baking.main.v1 import song
+        from baking.main.v1.endpoints.songs import song
         from flask_restplus import marshal
 
         id_testing = 1
