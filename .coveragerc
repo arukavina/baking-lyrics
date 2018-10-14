@@ -1,6 +1,6 @@
 [run]
-source = /Users/arukavina/github/baking-lyrics/baking
-omit=[/Users/arukavina/github/baking-lyrics/baking/resources/*.py,
-      /Users/arukavina/github/baking-lyrics/baking/static/*.py,
-      /Users/arukavina/github/baking-lyrics/baking/main/migrations/*.py
+source = baking
+omit=[baking/resources/*.py,
+      baking/static/*.py,
+      baking/main/migrations/*.py
       ]
