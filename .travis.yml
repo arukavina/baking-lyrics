@@ -8,14 +8,32 @@ script:
   - coverage run -a baking/tests/test_config.py
   - coverage run -a baking/tests/test_songs.py
   - coverage html
+before_deploy:
+  - zip -r latest *
+  - mkdir -p dpl_cd_upload
+  - mv latest.zip dpl_cd_upload/latest.zip
+cache: pip
 branches:
   only:
-    - master
+- master
 deploy:
-  provider: codedeploy
-  revision_type: github
+- provider: s3
   access_key_id: $AWS_ACCESS_KEY
   secret_access_key: $AWS_SECRET_KEY
-  application: baking-api
-  deployment_group: staging
+  local_dir: dpl_cd_upload
+  skip_cleanup: true
+  on: &2
+    repo: arukavina/baking-lyrics
+  bucket: elasticbeanstalk-us-east-1-385336769428
   region: "us-east-1"
+- provider: codedeploy
+  access_key_id: $AWS_ACCESS_KEY
+  secret_access_key: $AWS_SECRET_KEY
+  bucket: elasticbeanstalk-us-east-1-385336769428
+  key: latest.zip
+  bundle_type: zip
+  application: ai.bakinglyrics.com
+  deployment_group: prd
+  region: "us-east-1"
+  on: *2
+
