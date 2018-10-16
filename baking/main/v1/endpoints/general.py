@@ -61,6 +61,6 @@ def get_random_lyric():
     :return: Str, HTML Code
     """
     number_songs = db.session.query(Song.id).count()
-    logger.info("Getting one random song from a pool {}".format(number_songs))
+    logger.info("Getting one random song from {} pool.".format(number_songs))
     random_song = Song.query.filter(Song.id == random.randint(1, number_songs)).one()
     return random_song
