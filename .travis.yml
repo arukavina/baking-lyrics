@@ -39,3 +39,5 @@ deploy:
     deployment_group: prd
     region: "us-east-1"
 on: *1
+after_deploy:
+  - ./start_api_prd.sh
