@@ -100,10 +100,10 @@ ENV/
 .idea/
 
 # Models
-*.iml
-*.yaml
-*.h5
-*.hdh5
+.iml
+.yaml
+.h5
+.hdf5
 .pickle
 .npz
 
