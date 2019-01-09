@@ -8,6 +8,7 @@ branches:
     - master
 before_script:
   - export PYTHONPATH=$PWD
+  - export APP_CONFIG_FILE=config/testing.py
   - python baking/refresh_database.py
 script:
   - coverage erase

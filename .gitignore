@@ -99,12 +99,17 @@ ENV/
 
 .idea/
 
+# Models
 *.iml
 *.yaml
 *.h5
+*.hdf5
+*.pickle
+*.npz
 
 # Data
 songdata.csv
+lyrics.csv
 *.db
 *.zip
 
