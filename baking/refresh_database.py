@@ -14,7 +14,7 @@ import os
 
 print(os.getenv('PYTHONPATH'))
 
-app = create_app(r'config/testing.py')
+app = create_app()  # Is using ENV Variable APP_CONFIG_FILE=config/development.py
 logger = logging.getLogger('baking-api')
 
 song_data = pd.read_csv(app.config.get('DATA_FILE_PATH'))
@@ -23,8 +23,6 @@ db.init_app(app)
 app.app_context().push()
 db.drop_all()
 db.create_all()
-
-pop = Genre(name='Pop')
 
 
 def refresh():
@@ -39,11 +37,11 @@ def refresh():
             artist = Artist(name=song['artist'],
                             country="US",
                             formation_date=datetime.date(1987, 12, 5),
-                            genre=pop)
+                            genre=Genre(name=song['genre']))
 
         db.session.add(Song(title=song['song'],
-                            lyrics=song['text'],
-                            publication_date=datetime.date(2016, 12, 5),
+                            lyrics=song['lyrics'],
+                            publication_date=datetime.date(int(song['year']), 12, 5),
                             artist=artist
                             )
                        )
@@ -68,7 +66,7 @@ def create_artificial():
             artist = Artist(name=song['artist'],
                             country="US",
                             formation_date=datetime.date(1987, 12, 5),
-                            genre=pop)
+                            genre=Genre(name=song['genre']))
 
         artificial_title = ArtificialTitle(
             title=song['song'],
@@ -77,7 +75,7 @@ def create_artificial():
 
         artificial_song = ArtificialSong(
             artificial_title=artificial_title,
-            lyrics=song['text'],
+            lyrics=song['lyrics'],
             model="Dummy",
             base_artist=artist,
             creation_date=datetime.datetime.utcnow()
