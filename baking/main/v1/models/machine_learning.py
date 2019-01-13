@@ -283,7 +283,7 @@ class LyricsSkthModel(Model):
                           temperature=0.6,
                           depth_search_replace=5,
                           width_search_replace=64,
-                          batch_size=None):
+                          batch_size=128):
         """
 
         :param encoded_vector_title:
@@ -318,6 +318,7 @@ class LyricsSkthModel(Model):
 
         logger.info("Generating Lyrics...")
 
+        logger.debug("Calculating model context")
         context = self.generator_model_context.predict(
             [encoded_vector_title, encoded_vector_song_mean, artist_token, genre_token]
         )
@@ -333,6 +334,7 @@ class LyricsSkthModel(Model):
 
         z = np.zeros((1, self.latent_dim * 5))
 
+        logger.debug("Calculating verse context")
         encoded_vector, sh1, sc1, sh2, sc2 = self.model_verse_emb_context.predict([np.zeros((1, 1, self.latent_dim)),
                                                                                    encoded_vector_title,
                                                                                    encoded_vector_song_mean,
@@ -950,11 +952,12 @@ if __name__ == '__main__':
                                            enc_vector_song_mean,
                                            _artist_token,
                                            _genre_token,
-                                           num_generated=128*2,
+                                           num_generated=1*2,
                                            max_length=128,
                                            temperature=0.7,
                                            depth_search_replace=5,
                                            width_search_replace=128,
+                                           batch_size=128,
                                            random_seed=2806)
 
     print(clean_place_holders(''.join(rawl)))
