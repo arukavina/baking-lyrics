@@ -88,7 +88,6 @@ class NGramsModel(Model):
         logger.info("Characters V: {}".format(self.characters))
         logger.info("Text length: {}".format(self.length))
 
-        # TODO: Complete this method.
         loaded_model = None
 
         self.model = loaded_model
@@ -209,7 +208,7 @@ class LyricsSkthModel(Model):
         if tokenizer is None:
             raise AttributeError()
         else:
-            self.t = tokenizer
+            self.tokenizer = tokenizer
 
         super().__init__(decoder_model_path)
 
@@ -226,12 +225,10 @@ class LyricsSkthModel(Model):
         self.length = None
         
         # Model Parameters
-        self.latent_dim = 0
-        self.max_song_length = 100
+        self.latent_dim = 100
+        self.max_song_length = 300
         
         # Model Binaries
-        # TODO: Define load for all this
-
         self.decoder_model = None
         self.generator_model_context = None
         self.model_verse_emb_context = None
@@ -244,17 +241,26 @@ class LyricsSkthModel(Model):
         """
 
         # Keras Imports
-        from keras.models import model_from_yaml
+        from keras_self_attention import SeqSelfAttention
+        from keras.models import load_model
 
         # Load YAML and create models
         logger.info("Loading models...")
 
         try:
-            yaml_file = open(self.model_file_path, 'r')
-            loaded_model_yaml = yaml_file.read()
-            yaml_file.close()
 
-            loaded_model = model_from_yaml(loaded_model_yaml)
+            logger.info("Loading Decoder Model from disk...")
+            self.decoder_model = load_model(self.decoder_model_path,
+                                            custom_objects=SeqSelfAttention.get_custom_objects())
+            logger.info("Loading Generator Model Context from disk...")
+            self.generator_model_context = load_model(self.generator_model_context_path,
+                                                      custom_objects=SeqSelfAttention.get_custom_objects())
+            logger.info("Loading Verse Embedding Model Context from disk...")
+            self.model_verse_emb_context = load_model(self.model_verse_emb_context_path,
+                                                      custom_objects=SeqSelfAttention.get_custom_objects())
+            logger.info("Loading STV Encoder from disk...")
+            self.model_stv_encoder = load_model(self.model_stv_encoder_path)
+
         except IOError as e:
             logger.error("Is not possible to load Keras models")
             raise e
@@ -262,9 +268,8 @@ class LyricsSkthModel(Model):
             logger.error("Missing dependency")
             raise e
 
-        self.model = loaded_model
         self.model_loaded = True
-        logger.info("Loaded models from disk")
+        logger.info("Models loaded from disk")
 
     def generate_sentence(self,
                           encoded_vector_title,
@@ -272,14 +277,13 @@ class LyricsSkthModel(Model):
                           artist_token,
                           genre_token,
                           lang='en',
-                          length=100,
                           random_seed=69,
                           num_generated=128,
                           max_length=None,
                           temperature=0.6,
                           depth_search_replace=5,
                           width_search_replace=64,
-                          batch_size=None):
+                          batch_size=128):
         """
 
         :param encoded_vector_title:
@@ -287,7 +291,6 @@ class LyricsSkthModel(Model):
         :param artist_token:
         :param genre_token:
         :param lang:
-        :param length:
         :param random_seed:
         :param num_generated:
         :param max_length:
@@ -313,6 +316,9 @@ class LyricsSkthModel(Model):
         if batch_size is None:
             batch_size = num_generated
 
+        logger.info("Generating Lyrics...")
+
+        logger.debug("Calculating model context")
         context = self.generator_model_context.predict(
             [encoded_vector_title, encoded_vector_song_mean, artist_token, genre_token]
         )
@@ -328,6 +334,7 @@ class LyricsSkthModel(Model):
 
         z = np.zeros((1, self.latent_dim * 5))
 
+        logger.debug("Calculating verse context")
         encoded_vector, sh1, sc1, sh2, sc2 = self.model_verse_emb_context.predict([np.zeros((1, 1, self.latent_dim)),
                                                                                    encoded_vector_title,
                                                                                    encoded_vector_song_mean,
@@ -344,7 +351,7 @@ class LyricsSkthModel(Model):
         state_c_2[:, :] = sc2
 
         # Place holder variables
-        sequence = self.t.tokenizer.texts_to_sequences(['xseqstart'])
+        sequence = self.tokenizer.tokenizer.texts_to_sequences(['xseqstart'])
         sequence = pad_sequences(sequence, padding='post', truncating='post', maxlen=self.max_song_length)
         sequence = np.repeat(sequence, num_generated, axis=0)
         score = np.zeros(num_generated)
@@ -353,8 +360,14 @@ class LyricsSkthModel(Model):
         state_c = np.zeros((num_generated, self.latent_dim * 2))
         verse_indexes = np.zeros(num_generated, dtype=int)
         verse_sequences = np.zeros((num_generated, self.max_verse_length))
-        verse_sequences[:, 0] = self.t.tokenizer.word_index['xseqstart']
+        verse_sequences[:, 0] = self.tokenizer.tokenizer.word_index['xseqstart']
         encoded_verses_matrix = np.zeros((num_generated, self.max_number_verses, self.latent_dim))
+
+        logger.debug('Processing {} loops'.format(max_length - 1))
+
+        # num_generated = 256,
+        # max_length = 128,
+        # length = 50,
 
         for j in range(max_length - 1):
             if (j + 1) % depth_search_replace == 0:
@@ -383,11 +396,11 @@ class LyricsSkthModel(Model):
                                                                        state_h,
                                                                        state_c], batch_size=batch_size)
 
-            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], temperature=temperature)
+            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], t.tokenizer, temperature=temperature)
 
             # no end hardcoded
-            idx = np.array([self.t.tokenizer.word_index['xnewlinefeed']
-                            if self.t.reverse_word_map.get(x, '') == 'xseqend'
+            idx = np.array([self.tokenizer.tokenizer.word_index['xnewlinefeed']
+                            if self.tokenizer.reverse_word_map.get(x, '') == 'xseqend'
                             else x
                             for x in idx])
 
@@ -398,7 +411,7 @@ class LyricsSkthModel(Model):
             # v s p e p e
             # j   0 1 2 3
 
-            mask = idx == self.t.tokenizer.word_index['xnewlinefeed']
+            mask = idx == self.tokenizer.tokenizer.word_index['xnewlinefeed']
             num_new_verses = np.sum(mask)
             if num_new_verses > 0:
 
@@ -409,7 +422,7 @@ class LyricsSkthModel(Model):
                                                         s,
                                                         (verse_indexes[s] + 1):(verse_indexes[s] + v_len + 1)
                                                         ]
-                    verse_sequences[s, v_len + 1] = self.t.tokenizer.word_index['xseqend']
+                    verse_sequences[s, v_len + 1] = self.tokenizer.tokenizer.word_index['xseqend']
                     verse_sequences[s, min(v_len + 2, self.max_verse_length - 1):] = 0
 
                 encoded_verses = self.model_stv_encoder.predict(verse_sequences[mask], batch_size=batch_size)
@@ -430,9 +443,10 @@ class LyricsSkthModel(Model):
 
                 verse_indexes[mask] = j + 1
 
-        logger.info('Generated: {}'.format(''))
+        print('')
+        logger.info('Generation Done')
 
-        return sequence, [text_from_sequence(s) for s in sequence], score
+        return sequence, [text_from_sequence(s, self.tokenizer.reverse_word_map) for s in sequence], score
 
     def __str__(self):
         from pprint import pprint
@@ -522,7 +536,6 @@ class LyricsLSTMModel(Model):
         :return:
         """
 
-        import numpy as np
         from keras.utils import np_utils
 
         if lang != 'es':
@@ -532,26 +545,26 @@ class LyricsLSTMModel(Model):
             logger.info("Model not loaded, loading it now...")
             self.load_model()
 
-        X = []
-        Y = []
+        _X = []
+        _Y = []
 
         seq_length = 100
 
         for i in range(0, self.length - seq_length, 1):
             sequence = self.text[i:i + seq_length]
             label = self.text[i + seq_length]
-            X.append([self.char_to_n()[char] for char in sequence])
-            Y.append(self.char_to_n()[label])
+            _X.append([self.char_to_n()[char] for char in sequence])
+            _Y.append(self.char_to_n()[label])
 
-            logger.debug(label, '->', Y[i])
+            logger.debug(label, '->', _Y[i])
 
-        X_modified = np.reshape(X, (len(X), seq_length, 1))
-        X_modified = X_modified / float(len(self.characters))
-        Y_modified = np_utils.to_categorical(Y)
+        _X_modified = np.reshape(_X, (len(_X), seq_length, 1))
+        _X_modified = _X_modified / float(len(self.characters))
+        _Y_modified = np_utils.to_categorical(_Y)
 
         # Generating Text
 
-        string_mapped = X[seed]
+        string_mapped = _X[seed]
 
         logger.info(string_mapped)
 
@@ -576,7 +589,7 @@ class LyricsLSTMModel(Model):
 
             logger.debug(pred_index, '->', self.n_to_char()[pred_index])
 
-            seq = [self.n_to_char()[value] for value in string_mapped]
+            # seq = [self.n_to_char()[value] for value in string_mapped]
 
             full_string.append(self.n_to_char()[pred_index])
 
@@ -646,19 +659,25 @@ class TitleLSTMModel(Model):
         self.model_loaded = True
         logger.info("Loaded model from disk")
 
-    def generate_sentence(self, input_text='', temperature=0., max_output_sequence_lenght=8, number_of_titles=3, *kargs):
+    def generate_sentence(self,
+                          input_text='',
+                          temperature=0.,
+                          max_output_sequence_length=8,
+                          number_of_titles=3,
+                          *kargs):
         """
         :param input_text:
         :param temperature:
-        :param max_output_sequence_lenght:
+        :param max_output_sequence_length:
         :param number_of_titles:
         :param kargs:
         :return:
         """
-        import numpy as np
+
         from keras.preprocessing.sequence import pad_sequences
 
-        reverse_word_map = dict(map(reversed, self.tokenizer.word_index.items()))
+        reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
+        # reverse_word_map = dict(map(reversed, self.tokenizer.word_index.items()))
 
         input_text = input_text.lower().replace("'", ' ').replace('\n', 'xnewline ')
         input_sequence = self.tokenizer.texts_to_sequences([input_text])
@@ -666,25 +685,25 @@ class TitleLSTMModel(Model):
 
         start_token_value = self.tokenizer.texts_to_sequences(['xseqstart'])[0][0]
         end_token_value = self.tokenizer.texts_to_sequences(['xseqend'])[0][0]
-        output_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
+        output_sequence = np.zeros((1, max_output_sequence_length), dtype=int)
         output_sequence[0, 0] = start_token_value
 
         titles = []
         for j in range(number_of_titles):
-            output_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
-            pred_sequence = np.zeros((1, max_output_sequence_lenght), dtype=int)
+            output_sequence = np.zeros((1, max_output_sequence_length), dtype=int)
+            pred_sequence = np.zeros((1, max_output_sequence_length), dtype=int)
             output_sequence[0, 0] = start_token_value
 
-            for i in range(max_output_sequence_lenght):
+            for i in range(max_output_sequence_length):
                 output_tokens = self.model.predict([input_sequence, output_sequence])
                 output_tokens = output_tokens + np.random.normal(size=output_tokens.shape)*temperature
-                pred_sequence[0,] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))] for ii in
-                                     range(max_output_sequence_lenght)]
+                pred_sequence[0, ] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))]
+                                      for ii in range(max_output_sequence_length)]
 
-                for ii in range(max_output_sequence_lenght - 1):
+                for ii in range(max_output_sequence_length - 1):
                     output_sequence[0, ii + 1] = pred_sequence[0, ii]
 
-            clean_output_sequence = filter(lambda x: x not in set([start_token_value, end_token_value, 0]),
+            clean_output_sequence = filter(lambda x: x not in {start_token_value, end_token_value, 0},
                                            output_sequence[0])
             titles.append(" ".join([reverse_word_map.get(token, '') for token in clean_output_sequence]))
 
@@ -706,11 +725,14 @@ def sample(preds_p, tokenizer, temperature=1.0):
     exp_preds = np.exp(preds)
     preds = exp_preds / np.sum(exp_preds, axis=1, keepdims=True)
 
-    probas = np.concatenate([np.random.multinomial(1, x, 1) for x in preds])
+    probs = np.concatenate([np.random.multinomial(1, x, 1) for x in preds])
 
-    idx = np.argmax(probas, axis=1)
+    idx = np.argmax(probs, axis=1)
 
-    return idx, np.log(preds_p[range(len(idx)), idx]), preds_p[:, tokenizer.word_index['xseqend']], preds_p[:, tokenizer.word_index['xnewlinefeed']]
+    xseqend = preds_p[:, tokenizer.word_index['xseqend']]
+    xnewlinefeed = preds_p[:, tokenizer.word_index['xnewlinefeed']]
+
+    return idx, np.log(preds_p[range(len(idx)), idx]), xseqend, xnewlinefeed
 
 
 def text_pre_process(text):
@@ -747,6 +769,13 @@ def encode_verse(verse, tokenizer, model_stv_encoder, max_verse_length=20):
     return encoded_vector.reshape((1, encoded_vector.shape[0]))
 
 
+def clean_place_holders(lyric):
+    return lyric. \
+        replace('xseqstart ', ''). \
+        replace('xseqend ', ''). \
+        replace('xnewlinefeed ', '\n')
+
+
 class Tokenizer:
 
     def __init__(self, model_name, artist_genre_tokenizer_path, tokenizer_path, embedded_matrix_path):
@@ -781,52 +810,52 @@ class Tokenizer:
         self.tokenizer_path = tokenizer_path
         self.embedded_matrix_path = embedded_matrix_path
 
-        self.embedding_matrix = None
-        self.genre_tokenizer = None
-        self.artist_tokenizer = None
-        self.reverse_word_map = None
+        self._embedding_matrix = None
+        self._genre_tokenizer = None
+        self._artist_tokenizer = None
+        self._reverse_word_map = None
 
-        self.tokenizer = None
+        self._tokenizer = None
 
     @property
     def embedding_matrix(self):
-        return self.embedding_matrix
+        return self._embedding_matrix
 
     @embedding_matrix.setter
     def embedding_matrix(self, value):
-        self.embedding_matrix = value
+        self._embedding_matrix = value
 
     @property
     def genre_tokenizer(self):
-        return self.genre_tokenizer
+        return self._genre_tokenizer
 
     @genre_tokenizer.setter
     def genre_tokenizer(self, value):
-        self.genre_tokenizer = value
+        self._genre_tokenizer = value
 
     @property
     def artist_tokenizer(self):
-        return self.artist_tokenizer
+        return self._artist_tokenizer
 
     @artist_tokenizer.setter
     def artist_tokenizer(self, value):
-        self.artist_tokenizer = value
+        self._artist_tokenizer = value
 
     @property
     def reverse_word_map(self):
-        return self.reverse_word_map
+        return self._reverse_word_map
 
     @reverse_word_map.setter
     def reverse_word_map(self, value):
-        self.reverse_word_map = value
+        self._reverse_word_map = value
 
     @property
     def tokenizer(self):
-        return self.tokenizer
+        return self._tokenizer
 
     @tokenizer.setter
     def tokenizer(self, value):
-        self.tokenizer = value
+        self._tokenizer = value
 
     def load(self):
         """
@@ -836,15 +865,15 @@ class Tokenizer:
         logger.info('Loading tokenizers')
 
         agt = np.load(self.artist_genre_tokenizer_path)
-        self.genre_tokenizer = agt['genre_tokenizer'].tolist()
-        self.artist_tokenizer = agt['artist_tokenizer'].tolist()
+        self._genre_tokenizer = agt['genre_tokenizer'].tolist()
+        self._artist_tokenizer = agt['artist_tokenizer'].tolist()
 
-        self.embedding_matrix = np.load(self.embedded_matrix_path)['embedding_matrix']
+        self._embedding_matrix = np.load(self.embedded_matrix_path)['embedding_matrix']
 
         with open(self.tokenizer_path, 'rb') as handle:
-            self.tokenizer = pickle.load(handle)
+            self._tokenizer = pickle.load(handle)
 
-        self.reverse_word_map = dict(map(reversed, self.tokenizer.word_index.items()))
+        self._reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
 
         logger.info("Tokenizers loaded from disk successfully")
 
@@ -854,22 +883,28 @@ if __name__ == '__main__':
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
 
     settings = dict(
-        log_dir=r'../logs',
-        log_level=2
+        LOG_DIR=r'../logs',
+        LOG_LEVEL=1,
+        MODELS_PATH=r'baking/resources/models'
     )
 
     log_utils.setup_logging('bl-api-mlAbl', timestamp, settings)
     logger = log_utils.get_logger('bl-api-mlAbl')
 
-    logger.info(os.getcwd())
+    logger.info('PWD = {}'.format(os.getcwd()))
 
     model_name_str = 'lyrics_skth_v0_20_40_300_5000_100'
 
     # Loading Tokenizer
 
-    tokenizer_filename = os.path.join(model_name_str, '.tokenizer.pickle')
-    embedding_matrix_filename = os.path.join(model_name_str, '.embmat.npz')
-    artist_genre_tokenizer_filename = os.path.join(model_name_str, '.artist_genre_tokenizer.npz')
+    tokenizer_filename = os.path.join(settings['MODELS_PATH'],
+                                      model_name_str + '.tokenizer.pickle')
+    embedding_matrix_filename = os.path.join(settings['MODELS_PATH'],
+                                             model_name_str + '.embmat.npz')
+    artist_genre_tokenizer_filename = os.path.join(settings['MODELS_PATH'],
+                                                   model_name_str + '.artist_genre_tokenizer.npz')
+
+    logger.info('Loading Model Tokenizer')
 
     t = Tokenizer(model_name=model_name_str,
                   artist_genre_tokenizer_path=artist_genre_tokenizer_filename,
@@ -877,38 +912,52 @@ if __name__ == '__main__':
                   embedded_matrix_path=embedding_matrix_filename)
     t.load()
 
+    logger.info('Loading Model')
+
     a = LyricsSkthModel(
-        decoder_model_path='../resources/models/decoder.h5',
-        gen_model_context_path='../resources/models/generator_model_context.h5',
-        model_verse_emb_context_path='../resources/models/verse_emb_context.h5',
-        model_stv_encoder_path='../resources/models/stv_encoder.h5',
+        decoder_model_path=os.path.join(settings['MODELS_PATH'],
+                                        model_name_str + '.model.generator_word.h5'),
+        gen_model_context_path=os.path.join(settings['MODELS_PATH'],
+                                            model_name_str + '.model.generator_context.h5'),
+        model_verse_emb_context_path=os.path.join(settings['MODELS_PATH'],
+                                                  model_name_str + '.model.verse_emb_context.h5'),
+        model_stv_encoder_path=os.path.join(settings['MODELS_PATH'],
+                                            model_name_str + '.model.skipthought.h5'),
         tokenizer=t
     )
 
-    title = 'xseqstart working class xseqend'
-    input_texts = ['xseqstart flower grows in texas xseqend',
-                   'xseqstart nick works in texas xseqend',
+    a.load_model()
+
+    title = 'xseqstart working class hero xseqend'
+    input_texts = ['xseqstart flower grows in texas? xseqend',
+                   'xseqstart nice Barbaras in texas xseqend',
                    'xseqstart texas is my country xseqend']
-    artist = 'blake-shelton'
-    genre = 'Country'
+    artist = 'beyonce-knowles'
+    genre = 'Pop'
 
-    encoded_vector_title = encode_verse(title, tokenizer=t.tokenizer,
-                                        model_stv_encoder=model_stv_encoder,  # From a object
-                                        max_verse_length=20)
-    encoded_vector_song_mean = np.mean([encode_verse(x) for x in input_texts], axis=0)
-    artist_token = np.array(t.artist_tokenizer[artist]).reshape((1, 1))
-    genre_token = np.array(t.genre_tokenizer[genre]).reshape((1, 1))
+    enc_vector_title = encode_verse(title, tokenizer=t.tokenizer,
+                                    model_stv_encoder=a.model_stv_encoder,
+                                    max_verse_length=20)
 
-    results = a.generate_sentence(generator_model_word,  # From self
-                                  encoded_vector_title,
-                                  encoded_vector_song_mean,
-                                  artist_token,
-                                  genre_token,
-                                  num_generated=128*2,
-                                  max_length=128,
-                                  temperature=0.7,
-                                  depth_search_replace=5,
-                                  width_search_replace=128,
-                                  length=50,
-                                  random_seed=69)
-    # a.__str__()
+    enc_vector_song_mean = np.mean([encode_verse(x,
+                                                 tokenizer=t.tokenizer,
+                                                 model_stv_encoder=a.model_stv_encoder,
+                                                 max_verse_length=20)
+                                    for x in input_texts], axis=0)
+
+    _artist_token = np.array(t.artist_tokenizer[artist]).reshape((1, 1))
+    _genre_token = np.array(t.genre_tokenizer[genre]).reshape((1, 1))
+
+    seq, rawl, score = a.generate_sentence(enc_vector_title,
+                                           enc_vector_song_mean,
+                                           _artist_token,
+                                           _genre_token,
+                                           num_generated=1*2,
+                                           max_length=128,
+                                           temperature=0.7,
+                                           depth_search_replace=5,
+                                           width_search_replace=128,
+                                           batch_size=128,
+                                           random_seed=2806)
+
+    print(clean_place_holders(''.join(rawl)))
