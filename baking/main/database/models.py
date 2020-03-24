@@ -2,35 +2,33 @@
 from datetime import datetime
 
 from baking.main import db, flask_bcrypt
-from flask_login import UserMixin
 
-
-class User(UserMixin, db.Model):
-    """ User Model for storing user related details """
-    __tablename__ = 'users'
-    id = db.Column(db.Integer, primary_key=True)
-    social_id = db.Column(db.String(64), nullable=False, unique=True)
-    nickname = db.Column(db.String(64), nullable=False)
-    email = db.Column(db.String(64), nullable=True)
-    registered_on = db.Column(db.DateTime, nullable=False)
-    admin = db.Column(db.Boolean, nullable=False, default=False)
-    auth_method = db.Column(db.String(50))
-    member_since = db.Column(db.DateTime)
-    password_hash = db.Column(db.String(255))
-
-    @property
-    def password(self):
-        raise AttributeError('password: write-only field')
-
-    @password.setter
-    def password(self, password):
-        self.password_hash = flask_bcrypt.generate_password_hash(password).decode('utf-8')
-
-    def check_password(self, password):
-        return flask_bcrypt.check_password_hash(self.password_hash, password)
-
-    def __repr__(self):
-        return "<User '{}'>".format(self.username)
+# class User(UserMixin, db.Model):
+#     """ User Model for storing user related details """
+#     __tablename__ = 'users'
+#     id = db.Column(db.Integer, primary_key=True)
+#     social_id = db.Column(db.String(64), nullable=False, unique=True)
+#     nickname = db.Column(db.String(64), nullable=False)
+#     email = db.Column(db.String(64), nullable=True)
+#     registered_on = db.Column(db.DateTime, nullable=False)
+#     admin = db.Column(db.Boolean, nullable=False, default=False)
+#     auth_method = db.Column(db.String(50))
+#     member_since = db.Column(db.DateTime)
+#     password_hash = db.Column(db.String(255))
+#
+#     @property
+#     def password(self):
+#         raise AttributeError('password: write-only field')
+#
+#     @password.setter
+#     def password(self, password):
+#         self.password_hash = flask_bcrypt.generate_password_hash(password).decode('utf-8')
+#
+#     def check_password(self, password):
+#         return flask_bcrypt.check_password_hash(self.password_hash, password)
+#
+#     def __repr__(self):
+#         return "<User '{}'>".format(self.username)
 
 
 class Genre(db.Model):
@@ -122,8 +120,8 @@ class ArtificialSong(db.Model):
     lyrics = db.Column(db.Text)
     model = db.Column(db.String(50))
     creation_date = db.Column(db.DateTime)
-    user_id = db.Column(db.Integer, db.ForeignKey(User.id))
-    user = db.relationship(User, backref=db.backref('artificialSong', lazy='dynamic'))
+    # user_id = db.Column(db.Integer, db.ForeignKey(User.id))
+    # user = db.relationship(User, backref=db.backref('artificialSong', lazy='dynamic'))
     base_artist_id = db.Column(db.Integer, db.ForeignKey(Artist.id))
     base_artist = db.relationship(Artist, backref=db.backref('artificialSong', lazy='dynamic'))
 

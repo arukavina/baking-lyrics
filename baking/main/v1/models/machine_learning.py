@@ -240,36 +240,40 @@ class LyricsSkthModel(Model):
         :return:
         """
 
-        # Keras Imports
-        from keras_self_attention import SeqSelfAttention
-        from keras.models import load_model
+        if self.model_loaded:
+            logger.info('Using cached model')
+        else:
 
-        # Load YAML and create models
-        logger.info("Loading models...")
+            # Keras Imports
+            from keras_self_attention import SeqSelfAttention
+            from keras.models import load_model
 
-        try:
+            # Load YAML and create models
+            logger.info("Loading models...")
 
-            logger.info("Loading Decoder Model from disk...")
-            self.decoder_model = load_model(self.decoder_model_path,
-                                            custom_objects=SeqSelfAttention.get_custom_objects())
-            logger.info("Loading Generator Model Context from disk...")
-            self.generator_model_context = load_model(self.generator_model_context_path,
-                                                      custom_objects=SeqSelfAttention.get_custom_objects())
-            logger.info("Loading Verse Embedding Model Context from disk...")
-            self.model_verse_emb_context = load_model(self.model_verse_emb_context_path,
-                                                      custom_objects=SeqSelfAttention.get_custom_objects())
-            logger.info("Loading STV Encoder from disk...")
-            self.model_stv_encoder = load_model(self.model_stv_encoder_path)
+            try:
 
-        except IOError as e:
-            logger.error("Is not possible to load Keras models")
-            raise e
-        except ImportError as e:
-            logger.error("Missing dependency")
-            raise e
+                logger.info("Loading Decoder Model from disk...")
+                self.decoder_model = load_model(self.decoder_model_path,
+                                                custom_objects=SeqSelfAttention.get_custom_objects())
+                logger.info("Loading Generator Model Context from disk...")
+                self.generator_model_context = load_model(self.generator_model_context_path,
+                                                          custom_objects=SeqSelfAttention.get_custom_objects())
+                logger.info("Loading Verse Embedding Model Context from disk...")
+                self.model_verse_emb_context = load_model(self.model_verse_emb_context_path,
+                                                          custom_objects=SeqSelfAttention.get_custom_objects())
+                logger.info("Loading STV Encoder from disk...")
+                self.model_stv_encoder = load_model(self.model_stv_encoder_path)
 
-        self.model_loaded = True
-        logger.info("Models loaded from disk")
+            except IOError as e:
+                logger.error("Is not possible to load Keras models")
+                raise e
+            except ImportError as e:
+                logger.error("Missing dependency")
+                raise e
+
+            self.model_loaded = True
+            logger.info("Models loaded from disk")
 
     def generate_sentence(self,
                           encoded_vector_title,
@@ -386,7 +390,7 @@ class LyricsSkthModel(Model):
                 state_h_2[worst] = state_h_2[best]
                 state_c_2[worst] = state_c_2[best]
 
-            print(j, end=' ')
+            # print(j, end=' ')
             sequence_current = sequence[:, j].reshape((num_generated, 1))
             encoded_vector_current = encoded_vector[:, j, :].reshape((num_generated, 1, encoded_vector.shape[2]))
 
@@ -396,7 +400,7 @@ class LyricsSkthModel(Model):
                                                                        state_h,
                                                                        state_c], batch_size=batch_size)
 
-            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], t.tokenizer, temperature=temperature)
+            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], self.tokenizer.tokenizer, temperature=temperature)
 
             # no end hardcoded
             idx = np.array([self.tokenizer.tokenizer.word_index['xnewlinefeed']
@@ -443,7 +447,6 @@ class LyricsSkthModel(Model):
 
                 verse_indexes[mask] = j + 1
 
-        print('')
         logger.info('Generation Done')
 
         return sequence, [text_from_sequence(s, self.tokenizer.reverse_word_map) for s in sequence], score
@@ -864,7 +867,7 @@ class Tokenizer:
         """
         logger.info('Loading tokenizers')
 
-        agt = np.load(self.artist_genre_tokenizer_path)
+        agt = np.load(self.artist_genre_tokenizer_path, allow_pickle=True)
         self._genre_tokenizer = agt['genre_tokenizer'].tolist()
         self._artist_tokenizer = agt['artist_tokenizer'].tolist()
 
