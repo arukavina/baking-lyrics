@@ -12,7 +12,6 @@ from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_restplus import Api
-from flask_login import LoginManager
 
 from sqlalchemy.orm.exc import NoResultFound
 from config import default
@@ -64,8 +63,10 @@ def create_app(app_config_file=None):
     # Variables defined here will override those in the default configuration
     if app_config_file is None:
         if os.getenv('APP_CONFIG_FILE') is not None:
+            print('Using config env_var: APP_CONFIG_FILE = {}'.format(os.getenv('APP_CONFIG_FILE')))
             app.config.from_envvar('APP_CONFIG_FILE')
     else:
+        print('Using config file = {}'.format(app_config_file))
         app.config.from_pyfile(app_config_file)
 
     # Setting up logger
@@ -87,12 +88,6 @@ def create_app(app_config_file=None):
     from baking.main import v1
 
     app = v1.init_app(app, api)
-
-    app.app_context().push()
-
-    # Login Manager
-    lm = LoginManager(app)
-    lm.login_view = 'login'
 
     app.app_context().push()
 
