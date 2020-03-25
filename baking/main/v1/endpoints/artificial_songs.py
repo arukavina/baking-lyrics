@@ -16,7 +16,7 @@ import numpy as np
 
 # Own
 from baking.main import api, db
-from baking.main.database.models import ArtificialSong, Artist, ArtificialTitle
+from baking.main.database.models import ArtificialSong, Artist, ArtificialTitle, Song
 from baking.main.v1.serializers import artificial_song
 from baking.main.v1.models import machine_learning as ml
 
@@ -101,15 +101,18 @@ class ArtificialSongItem(Resource):
             abort(404, 'Lyric does not exist.')
 
 
-@ns.route('/generate/<lang>/words/<int:number_words>/artist/<int:artist_id>/')
-@ns.response(404, 'Artificial Song not found.')
+@ns.route('/generate/<lang>/seed/<seed>/words/<int:number_words>/artist/<int:artist_id>/')
+@ns.response(400, 'Artist Id not found.')
+@ns.response(404, 'No Songs for Artist Id found.')
+@ns.response(411, 'Seed can not be empty.')
 @ns.response(500, 'Internal server error.')
+@ns.response(501, 'Artificial Songs can only be generated in english.')
 class ArtificialSongItem(Resource):
 
     @ns.marshal_with(artificial_song)
-    def get(self, lang='en', number_words=0, artist_id=None):
+    def get(self, lang='en', seed='', number_words=0, artist_id=None):
         """
-        Returns a generated song for the lang and artist_id
+        Returns a generated song for the lang, seed and artist_id limited to number_words
         """
         logger.info('[{}] - (lang: {})::(number_words: {})::(artist_id:{})'.format(
             inspect.stack()[0][3],
@@ -119,29 +122,37 @@ class ArtificialSongItem(Resource):
         ))
 
         if lang != 'en':
-            abort(400, 'Artificial Songs can only be generated in english')
+            abort(501, 'Artificial Songs can only be generated in english')
+
+        if seed == '':
+            abort(411, 'Seed can not be empty')
 
         try:
 
             artist = None
+            title = None
 
             try:
                 artist = Artist.query.filter(Artist.id == artist_id).one()
             except NoResultFound:
-                abort(404, 'Artist ID = {} does not exist.'.format(artist_id))
+                abort(400, 'Artist ID = {} does not exist.'.format(artist_id))
 
-            # TODO: Currently using song's title as artificial
-            title = 'working class hero'
-            title = list(map(ml.text_pre_process, [title]))[0]
+            # Getting a random sample from a random song
+            try:
+                song = Song.query.filter(Song.artist_id == artist_id)[0]
+                title = song.title
+
+            except NoResultFound:
+                abort(404, 'No songs data for Artist ID = {} does not exist.'.format(artist_id))
 
             artificial_title = ArtificialTitle(
-                title=title,
+                title=title + '(Artificial)',
                 creation_date=datetime.datetime.utcnow()
             )
 
-            # TODO: When not defined should be any song fragment
-            input_texts = ['xseqstart This is a working class hero xseqend',
-                           'xseqstart This is a working class hero xseqend']
+            title = list(map(ml.text_pre_process, [title]))[0]
+
+            input_texts = list(map(ml.text_pre_process, seed.split('\n')))
 
             lyrics = generate_song(input_texts, artist.name, artist.genre.name, title, word_count=number_words)
 
@@ -162,38 +173,79 @@ class ArtificialSongItem(Resource):
             abort(500, "Internal Server Error: {}".format(e))
 
 
-@ns.route('/generate/<lang>/<seed>/<int:number_words>/artist/<int:artist_id>/')
-@ns.response(404, 'Artist not found.')
+@ns.route('/generate/<lang>/words/<int:number_words>/artist/<int:artist_id>/')
+@ns.response(400, 'Artist Id not found.')
+@ns.response(404, 'No Songs for Artist Id found.')
+@ns.response(411, 'Seed can not be empty.')
 @ns.response(500, 'Internal server error.')
+@ns.response(501, 'Artificial Songs can only be generated in english.')
 class ArtificialSongItem(Resource):
 
     @ns.marshal_with(artificial_song)
-    def get(self, lang='en', seed='', number_words=0, artist_id=None):
+    def get(self, lang='en', number_words=0, artist_id=None):
         """
-        Returns a generated song for the lang, seed and artist_id limited to number_words
+        Returns a generated song for the lang and artist_id limited to number_words
         """
-        logger.info('[{}] - (lang: {})::(seed: {})::(number_words: {})::(artist_id:{})'.format(
+        logger.info('[{}] - (lang: {})::(number_words: {})::(artist_id:{})'.format(
             inspect.stack()[0][3],
             lang,
-            seed,
             number_words,
             artist_id
         ))
 
         if lang != 'en':
-            abort(400, 'Artificial Songs can only be generated in english')
+            abort(501, 'Artificial Songs can only be generated in english')
 
         try:
-            number_artificial_songs = db.session.query(ArtificialSong.id).count()
-            random_artificial_song = ArtificialSong.query.filter(ArtificialSong.id == random.randint(
-                1,
-                number_artificial_songs
-            )).one()
-            return random_artificial_song
-        except NoResultFound:
-            abort(404, 'Lyric does not exist.')
+
+            artist = None
+            title = None
+            fragment = ''
+
+            try:
+                artist = Artist.query.filter(Artist.id == artist_id).one()
+            except NoResultFound:
+                abort(400, 'Artist ID = {} does not exist.'.format(artist_id))
+
+            # Getting a random sample from a random song
+            try:
+                song = Song.query.filter(Artist.id == artist_id)[0]
+                title = song.title
+                lyrics = song.lyrics
+                random_cut = random.randint(30, len(lyrics))
+                fragment = song.lyrics[:random_cut]
+
+            except NoResultFound:
+                abort(404, 'No songs data for Artist ID = {} does not exist.'.format(artist_id))
+
+            artificial_title = ArtificialTitle(
+                title=title + '(Artificial)',
+                creation_date=datetime.datetime.utcnow()
+            )
+
+            title = list(map(ml.text_pre_process, [title]))[0]
+
+            input_texts = list(map(ml.text_pre_process, fragment.split('\n')))
+
+            lyrics = generate_song(input_texts, artist.name, artist.genre.name, title, word_count=number_words)
+
+            artificial_song = ArtificialSong(
+                artificial_title=artificial_title,
+                lyrics=lyrics,
+                model=app.config['MODEL_NAME_STR'],
+                base_artist=artist,
+                creation_date=datetime.datetime.utcnow()
+            )
+
+            db.session.add(artificial_song)
+            db.session.flush()
+            db.session.commit()
+
+            return artificial_song
         except ValueError as e:
             abort(500, "Internal Server Error: {}".format(e))
+
+
 
 
 def get_model_class(model):
