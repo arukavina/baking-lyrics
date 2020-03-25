@@ -18,12 +18,26 @@ from baking.main.util import log_utils
 logger = log_utils.get_logger('baking-api')
 
 
-class Model(object, metaclass=abc.ABCMeta):
+class Singleton(object):
+    _instance = None
 
-    @abc.abstractmethod
+    def __new__(cls, *dt, **mp):
+        if not hasattr(cls, '_inst'):
+            cls._inst = super(Singleton, cls).__new__(cls)
+        else:
+            def init_pass(self):
+                pass
+
+            cls.__init__ = init_pass
+
+        return cls._inst
+
+
+class Model(Singleton):
+
     def __init__(self, model_file_path):
         """
-        ABC Model class. Instantiates with the model file path
+        ABC Model Singleton class. Instantiates with the model file path
         :param model_file_path: path to model
         """
 

@@ -18,18 +18,11 @@ import numpy as np
 from baking.main import api, db
 from baking.main.database.models import ArtificialSong, Artist, ArtificialTitle
 from baking.main.v1.serializers import artificial_song
-
 from baking.main.v1.models import machine_learning as ml
 
 logger = logging.getLogger('baking-api')
 
 ns = api.namespace('artificial_songs', description='Operations related to artificially generated songs')
-
-# TODO: Move to app cache.
-current_songs_model = None
-current_title_model = None
-current_songs_model_name = None
-current_title_model_name = None
 
 
 def generate_song(input_texts, artist, genre, title, word_count=None):
@@ -39,35 +32,7 @@ def generate_song(input_texts, artist, genre, title, word_count=None):
         input_texts, artist, genre, title, word_count
     ))
 
-    model_name_str = app.config['MODEL_NAME_STR']
-    model_path = app.config['MODELS_PATH']
-
-    # Loading Tokenizer
-
-    tokenizer_filename = os.path.join(model_path, model_name_str + '.tokenizer.pickle')
-    embedding_matrix_filename = os.path.join(model_path, model_name_str + '.embmat.npz')
-    artist_genre_tokenizer_filename = os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz')
-
-    logger.info('Loading Model Tokenizer...')
-
-    tokenizer = ml.Tokenizer(
-        model_name=model_name_str,
-        artist_genre_tokenizer_path=artist_genre_tokenizer_filename,
-        tokenizer_path=tokenizer_filename,
-        embedded_matrix_path=embedding_matrix_filename
-    )
-    tokenizer.load()
-
-    logger.info('Loading Model...')
-
-    ai = ml.LyricsSkthModel(
-        decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
-        gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
-        model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
-        model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
-        tokenizer=tokenizer
-    )
-    ai.load_model()
+    ai = ml.LyricsSkthModel()
 
     enc_vector_title = ml.encode_verse(title, tokenizer=ai.tokenizer.tokenizer,
                                        model_stv_encoder=ai.model_stv_encoder,
@@ -166,7 +131,8 @@ class ArtificialSongItem(Resource):
                 abort(404, 'Artist ID = {} does not exist.'.format(artist_id))
 
             # TODO: Currently using song's title as artificial
-            title = 'xseqstart working class hero xseqend'
+            title = 'working class hero'
+            title = list(map(ml.text_pre_process, [title]))[0]
 
             artificial_title = ArtificialTitle(
                 title=title,
