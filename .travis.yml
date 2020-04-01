@@ -1,11 +1,11 @@
 language: python
 python:
-  - '3.6'
-install: "pip install -r requirements/prd.txt"
+- '3.7'
+install: pip install -r requirements/prd.txt
 cache: pip
 branches:
   only:
-    - master
+  - master
 before_script:
   - export PYTHONPATH=$PWD
   - export APP_CONFIG_FILE=config/testing.py
@@ -23,24 +23,33 @@ before_deploy:
   - mkdir -p dpl_cd_upload
   - mv latest.zip dpl_cd_upload/latest.zip
 deploy:
-  - provider: s3
-    access_key_id: $AWS_ACCESS_KEY
-    secret_access_key: $AWS_SECRET_KEY
-    local_dir: dpl_cd_upload
-    skip_cleanup: true
-    on: &1
-      repo: arukavina/baking-lyrics
-    bucket: elasticbeanstalk-us-east-1-385336769428
-    region: "us-east-1"
-  - provider: codedeploy
-    access_key_id: $AWS_ACCESS_KEY
-    secret_access_key: $AWS_SECRET_KEY
-    bucket: elasticbeanstalk-us-east-1-385336769428
-    key: latest.zip
-    bundle_type: zip
-    application: ai.bakinglyrics.com
-    deployment_group: prd
-    region: "us-east-1"
-on: *1
+  provider: heroku
+  app: baking-lyrics
+  strategy: git
+  api_key:
+    secure: oqXUyU2T+YTEKMVt2nTd3VukvRIPgWi8VewKpl1YuuDaWfOmyy7kErEtdyt+4gQPcEQOm+nbjFRV331kGpZw1DGbUq/8DKOU8Iv0RaaFcCHZS0W1BjM2FmcOiHu+tKd8vo+YaMqWJgVd/4JY5ZUykfLT9xWv5SQ2RNFlL/fwIR/SRYqUwQsPAUTgKQc5x7yEg6g/BRjqmZQMt/CvbNfohJJWJKxomXJBCwPpGk0mx0TOonid6fIe1QTG4VOVRsShAYEp+yvfDsmXe3+NlUBqBT5Ze2RjOKV5jt6kDY8w/hErrDXBby2LiaBxEYsEOaw+LInP67/cA5oYq/53sJLRISNyvXxmPraTgEqsyhnMQJr9UPmNdB2+uCNG1xnPt4JeBadIqZ/PRieFjuYf1QAisHvgzaO3B9TDxvlJHMmQ5WL/PvyITwVH22r/rhtphJ+fg2r37YTUsWt7EPEbqq7FwMzMMhxZfxYciW++2L553Y4av5beRIZXF3o4+Ih2xHezS4P2Ce+3pcAUHv6SlO1cYe7+wGP/HfddzKfGT4afJiqSXlclpHFllK1m2sD++ypxACaT0S8HZd9OYsm0r2SdLJwoSaSfCynOu1b0XLPFNq+gJ7qkWKoBuzetJRi9YlJ4noMqLd9RPSxAdhnZABtIs88v7VocUT3j1c9x+PA3LkY=
+after_deploy:
+  - ./start_api_prd.sh
+# AWS
+#deploy:
+#  - provider: s3
+#    access_key_id: $AWS_ACCESS_KEY
+#    secret_access_key: $AWS_SECRET_KEY
+#    local_dir: dpl_cd_upload
+#    skip_cleanup: true
+#    on: &1
+#      repo: arukavina/baking-lyrics
+#    bucket: elasticbeanstalk-us-east-1-385336769428
+#    region: "us-east-1"
+#  - provider: codedeploy
+#    access_key_id: $AWS_ACCESS_KEY
+#    secret_access_key: $AWS_SECRET_KEY
+#    bucket: elasticbeanstalk-us-east-1-385336769428
+#    key: latest.zip
+#    bundle_type: zip
+#    application: ai.bakinglyrics.com
+#    deployment_group: prd
+#    region: "us-east-1"
+#on: *1
 # after_deploy:
 # - ./start_api_prd.sh
