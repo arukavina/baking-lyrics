@@ -75,7 +75,7 @@ def create_app(app_config_file=None):
     logger = log_utils.get_logger('baking-api')
     log_utils.print_imports_versions(logger)
 
-    logger.info('Starting {} server at http://{}:5000/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME']))
+    logger.info('Starting {} server at http://{}:9090/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME_LOG']))
     logger.info('Using DB: {}'.format(app.config['SQLALCHEMY_DATABASE_URI']))
 
     # Igniting DB

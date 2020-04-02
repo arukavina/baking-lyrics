@@ -4,8 +4,12 @@ DEBUG = False
 SQLALCHEMY_ECHO = False
 TESTING = False
 PROPAGATE_EXCEPTIONS = None
-PRESERVE_CONTEXT_ON_EXCEPTION = None
+PRESERVE_CONTEXT_ON_EXCEPTION = False
+
+FLASK_ENV = 'production'
 ENV = 'production'
+
+SERVER_NAME_LOG = 'ai.bakinglyrics.com'  # So I don't use SERVER_NAME (reserved)
 
 DATA_FILE_PATH = r'/mnt/vol/resources/lyrics.csv'
 LYRICS_LSTM_SEED_FILE_PATH = r'/mnt/vol/resources/lyrics.csv'
@@ -16,7 +20,7 @@ LOG_DIR = r'/mnt/vol/logs/'
 LOG_LEVEL = 1
 
 # Lyrics - LSTM
-LYRICS_LSTM_MODEL_FILE_PATH = r'/mnt/vol/resources/models/generator_v1.yaml'
+LYRICS_LSTM_MODELxs_FILE_PATH = r'/mnt/vol/resources/models/generator_v1.yaml'
 LYRICS_LSTM_WEIGHTS_FILE_PATH = r'/mnt/vol/resources/models/generator_v1_weights.h5'
 
 # Title - LSTM
