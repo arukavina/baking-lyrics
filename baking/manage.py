@@ -82,12 +82,12 @@ def run():
             debug=app.config['DEBUG'],
             use_reloader=False)
 
-    # start_ai()
-
 
 @manager.command
 def test():
     """Runs the unit tests."""
+    app.app_context().push()
+
     tests = unittest.TestLoader().discover('tests', pattern='test*.py')
     result = unittest.TextTestRunner(verbosity=2).run(tests)
     if result.wasSuccessful():
