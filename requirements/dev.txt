@@ -4,6 +4,7 @@
 
 # Debug
 Flask-DebugToolbar==0.10.1
+tensorflow==2.1.0
 
 # PEP8
 pylint==1.8.1
