@@ -7,29 +7,29 @@ branches:
   only:
   - master
 before_script:
-  - export PYTHONPATH=$PWD
-  - export APP_CONFIG_FILE=config/testing.py
-  - python baking/refresh_database.py
+- export PYTHONPATH=$PWD
+- export APP_CONFIG_FILE=config/testing.py
+- python baking/refresh_database.py
 script:
-  - coverage erase
-  - coverage run baking/tests/test_general.py
-  - coverage run -a baking/tests/test_config.py
-  - coverage run -a baking/tests/test_songs.py
-  - coverage html
+- coverage erase
+- coverage run baking/tests/test_general.py
+- coverage run -a baking/tests/test_config.py
+- coverage run -a baking/tests/test_songs.py
+- coverage html
 after_success:
-  - codecov
+- codecov
 before_deploy:
-  - zip -r latest *
-  - mkdir -p dpl_cd_upload
-  - mv latest.zip dpl_cd_upload/latest.zip
+- zip -r latest *
+- mkdir -p dpl_cd_upload
+- mv latest.zip dpl_cd_upload/latest.zip
 deploy:
   provider: heroku
   app: baking-lyrics
   strategy: git
   api_key:
-    secure: oqXUyU2T+YTEKMVt2nTd3VukvRIPgWi8VewKpl1YuuDaWfOmyy7kErEtdyt+4gQPcEQOm+nbjFRV331kGpZw1DGbUq/8DKOU8Iv0RaaFcCHZS0W1BjM2FmcOiHu+tKd8vo+YaMqWJgVd/4JY5ZUykfLT9xWv5SQ2RNFlL/fwIR/SRYqUwQsPAUTgKQc5x7yEg6g/BRjqmZQMt/CvbNfohJJWJKxomXJBCwPpGk0mx0TOonid6fIe1QTG4VOVRsShAYEp+yvfDsmXe3+NlUBqBT5Ze2RjOKV5jt6kDY8w/hErrDXBby2LiaBxEYsEOaw+LInP67/cA5oYq/53sJLRISNyvXxmPraTgEqsyhnMQJr9UPmNdB2+uCNG1xnPt4JeBadIqZ/PRieFjuYf1QAisHvgzaO3B9TDxvlJHMmQ5WL/PvyITwVH22r/rhtphJ+fg2r37YTUsWt7EPEbqq7FwMzMMhxZfxYciW++2L553Y4av5beRIZXF3o4+Ih2xHezS4P2Ce+3pcAUHv6SlO1cYe7+wGP/HfddzKfGT4afJiqSXlclpHFllK1m2sD++ypxACaT0S8HZd9OYsm0r2SdLJwoSaSfCynOu1b0XLPFNq+gJ7qkWKoBuzetJRi9YlJ4noMqLd9RPSxAdhnZABtIs88v7VocUT3j1c9x+PA3LkY=
+    secure: NZxuCBS89CObRSeXdDfkDSHFLdggsgsbajLCAzXpkZRbXAd6h7NGbHq5K2gTBMZ6eDmSde0Y10czt1VQ7Cq7HSUNn7R5qjx4vtXI8Gnm2725CrFKUQJFQjBluhDaWmzFt/vSEYHweVNbWnk5JlIXzgCIRTdqMc5dh64I6wSwsRs9LLP/EXUpMrntmXhAI/+Div7ez8wBhRkJ91hUmk9Yp0VAs3X1YQCwK6H62ft8gxcUERvrAxYWwjP35fZcnDAr2A7bA4akS5GzhGMJFRYARtCcs9VBkVc0D+E7R81me1i1VXlPZtR1T5jn2aqDWjBHMuaYTNS0Xv+vYouzNZJ+7HVXzxKwpGj6MPBpuahCaP/D7+AQd0fOjp64b2jx/59n9qLM2nzqbd1tZ0EOTmLchqTPao8fTz1wGQD9Xmr3rNYq3RjsZYYwJvLsEhN7Lb4ygv8exXTO/an69/6A/uOVu5HI951PMHMDKjta5wmg6a34lADK8kX+RFCroV7UofODZEquXL3cJ41BDeTP7UME9e/AzSh9nDQNx2r6JWoysw1+PSZvIbzq48Orb2uGJ2hXF9DiKGqEDEpLWoV9i0Yi6J5XvEkVM0INZXq0Z7Ra8rdDm2E4S/7nzeF/gPQ2Oe8G+kZDijssuVQVqGk5gNuN+HJKVBlbJNFRH0fGEs6Zg6Q=
 after_deploy:
-  - ./start_api_prd.sh
+#- "./start_api_prd.sh"
 # AWS
 #deploy:
 #  - provider: s3
