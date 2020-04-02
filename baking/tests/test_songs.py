@@ -1,14 +1,14 @@
+# Generic
 import unittest
+
+# Libs
+from flask import current_app as app
 from flask_testing import TestCase
 
-from baking.main import create_app
 
-class TestViews(TestCase):
+class TestSongs(TestCase):
     def create_app(self):
-
-        app = create_app('config/development.py')
-        app.app_context().push()
-
+        app.config.from_object('config.development')
         return app
 
     def setUp(self):
