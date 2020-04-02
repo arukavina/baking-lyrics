@@ -2,24 +2,19 @@
 import unittest
 
 # Libs
-from flask import current_app as app
 from flask_testing import TestCase
+
+# Own
+from baking.manage import app
 
 
 class TestSongs(TestCase):
     def create_app(self):
-        app.config.from_object('config.development')
+        app.config.from_object('config.testing')
         return app
 
-    def setUp(self):
-        self.app = self.create_app()
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        self.client = self.app.test_client()
 
-    def tearDown(self):
-        self.app_context.pop()
-
+class TestSongEndPoints(TestSongs):
     def test_song_get(self):
 
         from baking.main.database.models import Song
