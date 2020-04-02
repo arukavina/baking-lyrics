@@ -10,7 +10,7 @@ from baking.manage import app
 
 class TestSongs(TestCase):
     def create_app(self):
-        app.config.from_object('config.testing')
+        app.config.from_object('config.development')
         return app
 
 

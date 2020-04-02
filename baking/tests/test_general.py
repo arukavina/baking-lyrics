@@ -3,9 +3,6 @@ import unittest
 
 # Libs
 from flask_testing import TestCase
-from flask_migrate import MigrateCommand
-from flask_migrate import Migrate
-from flask_script import Manager
 
 # Own
 from baking.manage import app
@@ -14,6 +11,7 @@ from baking.manage import app
 class TestGeneral(TestCase):
 
     def create_app(self):
+        app.config.from_object('config.default')
         app.config.from_object('config.testing')
         return app
 
@@ -21,9 +19,8 @@ class TestGeneral(TestCase):
 class TestEndPoints(TestGeneral):
 
     def test_random(self):
-        print('TestRandom')
-        client = self.client
-        response = client.get("/api/v1/general/random")
+        print('test_random')
+        response = self.client.get("/api/v1/general/random")
         art = response.json["artist"][0]
         print("Response (test_random): " + art["name"])
         self.assertIsNotNone(response)
