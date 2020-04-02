@@ -12,19 +12,6 @@ from flask_script import Manager
 from baking.main import create_app, db
 from baking.main.v1.models import machine_learning as ml
 
-
-# Test coverage configuration
-cov = coverage.Coverage(
-    branch=True,
-    include='baking/main/*',
-    omit=[
-        'baking/resources/*.py',
-        'baking/static/*.py',
-        'baking/migrations/*.py'
-    ]
-)
-cov.start()
-
 logger = logging.getLogger('baking-api')
 app = create_app(r'config/development.py')
 app.app_context().push()
@@ -33,47 +20,79 @@ manager = Manager(app)
 migrate = Migrate(app, db)
 manager.add_command('db', MigrateCommand)
 
-cov.stop()
-cov.save()
 
-cov.html_report()
+@manager.command
+def test():
+    """Runs the unit tests without coverage."""
+    tests = unittest.TestLoader().discover('tests', pattern='test*.py')
+    result = unittest.TextTestRunner(verbosity=2).run(tests)
+    if result.wasSuccessful():
+        return 0
+    return 1
 
-logger.info('Instantiating  AI models')
 
-model_name_str = app.config['MODEL_NAME_STR']
-model_path = app.config['MODELS_PATH']
+@manager.command
+def cov():
+    """Runs the unit tests with coverage."""
+    cov = coverage.Coverage(
+        branch=True,
+        include='baking/main/*',
+        omit=[
+            'baking/resources/*.py',
+            'baking/static/*.py',
+            'baking/migrations/*.py'
+        ]
+    )
+    cov.start()
+    tests = unittest.TestLoader().discover('tests')
+    unittest.TextTestRunner(verbosity=2).run(tests)
+    cov.stop()
+    cov.save()
 
-# Loading Tokenizer
-tokenizer_filename = os.path.join(model_path, model_name_str + '.tokenizer.pickle')
-embedding_matrix_filename = os.path.join(model_path, model_name_str + '.embmat.npz')
-artist_genre_tokenizer_filename = os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz')
+    print('Coverage Summary:')
+    cov.report()
 
-logger.info('Loading Model Tokenizer...')
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    covdir = os.path.join(basedir, 'coverage')
+    cov.html_report(directory=covdir)
 
-tokenizer = ml.Tokenizer(
-    model_name=model_name_str,
-    artist_genre_tokenizer_path=artist_genre_tokenizer_filename,
-    tokenizer_path=tokenizer_filename,
-    embedded_matrix_path=embedding_matrix_filename
-)
-tokenizer.load()
-
-logger.info('Loading Model...')
-
-ml_model = ml.LyricsSkthModel(
-    decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
-    gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
-    model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
-    model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
-    tokenizer=tokenizer
-)
-ml_model.load_model()
+    cov.erase()
 
 
 @manager.command
 def run():
+    logger.info('Instantiating  AI models')
 
-    app.app_context().push()
+    model_name_str = app.config['MODEL_NAME_STR']
+    model_path = app.config['MODELS_PATH']
+
+    # Loading Tokenizer
+    tokenizer_filename = os.path.join(model_path, model_name_str + '.tokenizer.pickle')
+    embedding_matrix_filename = os.path.join(model_path, model_name_str + '.embmat.npz')
+    artist_genre_tokenizer_filename = os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz')
+
+    logger.info('Loading Model Tokenizer...')
+
+    tokenizer = ml.Tokenizer(
+        model_name=model_name_str,
+        artist_genre_tokenizer_path=artist_genre_tokenizer_filename,
+        tokenizer_path=tokenizer_filename,
+        embedded_matrix_path=embedding_matrix_filename
+    )
+    tokenizer.load()
+
+    logger.info('Loading Model...')
+
+    ml_model = ml.LyricsSkthModel(
+        decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
+        gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
+        model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
+        model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
+        tokenizer=tokenizer
+    )
+    ml_model.load_model()
+
+    # app.app_context().push()
 
     # print(app.url_map)
 
@@ -81,18 +100,6 @@ def run():
             port=9090,
             debug=app.config['DEBUG'],
             use_reloader=False)
-
-
-@manager.command
-def test():
-    """Runs the unit tests."""
-    app.app_context().push()
-
-    tests = unittest.TestLoader().discover('tests', pattern='test*.py')
-    result = unittest.TextTestRunner(verbosity=2).run(tests)
-    if result.wasSuccessful():
-        return 0
-    return 1
 
 
 if __name__ == '__main__':
