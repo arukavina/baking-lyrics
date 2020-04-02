@@ -20,7 +20,7 @@ LOG_DIR = r'/mnt/vol/logs/'
 LOG_LEVEL = 1
 
 # Lyrics - LSTM
-LYRICS_LSTM_MODELxs_FILE_PATH = r'/mnt/vol/resources/models/generator_v1.yaml'
+LYRICS_LSTM_MODEL_FILE_PATH = r'/mnt/vol/resources/models/generator_v1.yaml'
 LYRICS_LSTM_WEIGHTS_FILE_PATH = r'/mnt/vol/resources/models/generator_v1_weights.h5'
 
 # Title - LSTM

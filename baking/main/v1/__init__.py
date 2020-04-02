@@ -37,5 +37,5 @@ def init_app(app, api):
     api.add_namespace(general_namespace)
 
     app.register_blueprint(blueprint)
-
+    logger.info("Blueprints registered")
     return app
