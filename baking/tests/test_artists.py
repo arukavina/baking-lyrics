@@ -55,5 +55,22 @@ class TestArtistEndPoints(TestArtists):
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
         
+    def test_artist_get_by_name(self):
+        partial_artist_name = 'monroe'
+        response = self.client.get('/api/v1/artists/search/{}'.format(partial_artist_name))
+        print('\n\nResponse: ' + str(response.status_code))
+        self.assertEqual(response.status_code, 200)
+        
+    def test_artist_get_archive(self):
+        archive_date = '1987/12/05/'
+        response = self.client.get('/api/v1/artists/archive/{}'.format(archive_date))
+        print('\n\nResponse: ' + str(response.status_code))
+        self.assertEqual(response.status_code, 200)
+        
+    def test_artist_get_all(self):
+        response = self.client.get('/api/v1/artists/')
+        print('\n\nResponse: ' + str(response.status_code))
+        self.assertEqual(response.status_code, 200)
+        
 if __name__ == '__main__':
     unittest.main()
