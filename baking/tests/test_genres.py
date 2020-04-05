@@ -43,7 +43,7 @@ class TestGenreEndPoints(TestGenres):
         
         data =  {"name": "country"}
         headers = {'content-type': 'application/json'}
-        id_testing = 18231
+        id_testing = 18232
         response = self.client.put('api/v1/genres/{}'.format(id_testing), data = json.dumps(data), headers = headers)
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
