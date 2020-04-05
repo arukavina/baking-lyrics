@@ -1,26 +1,25 @@
 language: python
 python:
-- '3.7'
+  - '3.7'
 install:
   - pip install -r requirements/prd.txt
   - pip install coverage
 cache: pip
 branches:
   only:
-  - master
+    - master
 before_script:
-- export PYTHONPATH=$PWD
-- export APP_CONFIG_FILE=config/testing.py
-- python baking/refresh_database.py
+  - export PYTHONPATH=$PWD
+  - export APP_CONFIG_FILE=config/testing.py
+  - python baking/refresh_database.py
 script:
-- coverage erase
-#- coverage run baking/tests/test_general.py
-#- coverage run -a baking/tests/test_config.py
-#- coverage run -a baking/tests/test_songs.py
-- coverage html
+  - coverage erase
+  - coverage run baking/tests/test_general.py
+  - coverage run -a baking/tests/test_config.py
+  - coverage run -a baking/tests/test_songs.py
+  - coverage html
 after_success:
-# - codecov
-- bash <(curl -s https://codecov.io/bash)
+  - bash <(curl -s https://codecov.io/bash)
 #before_deploy:
 #- zip -r latest *
 #- mkdir -p dpl_cd_upload
