@@ -1,1 +1,1 @@
-web: gunicorn baking.main:create_app
+web: gunicorn baking.manage:app
