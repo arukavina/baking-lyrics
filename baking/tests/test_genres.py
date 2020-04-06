@@ -16,10 +16,14 @@ class TestGenres(TestCase):
 
 class TestGenreEndPoints(TestGenres):
     def test_genre_create(self):
+        from baking.main.database.models import Genre
+        from baking.main import db
+        
         import json
         
+        id_testing = db.session.query(db.func.max(Genre.id)).scalar() + 1
         headers = {'content-type': 'application/json'}
-        data = {"id": 18232, "name": "Death Metal"}
+        data = {"id": id_testing, "name": "Death Metal"}
         
         response = self.client.post('api/v1/genres/', data = json.dumps(data), headers = headers)
         print('\n\nResponse: ' + str(response.status_code))
@@ -39,17 +43,23 @@ class TestGenreEndPoints(TestGenres):
         self.assertEqual(response.json, g)
         
     def test_genre_update(self):
+        from baking.main.database.models import Genre
+        from baking.main import db
+        
         import json
         
         data =  {"name": "country"}
         headers = {'content-type': 'application/json'}
-        id_testing = 18232
+        id_testing = db.session.query(db.func.max(Genre.id)).scalar()
         response = self.client.put('api/v1/genres/{}'.format(id_testing), data = json.dumps(data), headers = headers)
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
         
     def test_genre_delete(self):
-        id_testing = 18232
+        from baking.main.database.models import Genre
+        from baking.main import db
+        
+        id_testing = db.session.query(db.func.max(Genre.id)).scalar()
         response = self.client.delete('api/v1/genres/{}'.format(id_testing))
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
