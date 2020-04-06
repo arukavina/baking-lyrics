@@ -10,10 +10,10 @@ from flask_script import Manager
 
 # Own
 from baking.main import create_app, db
-from baking.main.v1.models import machine_learning as ml
+
 
 logger = logging.getLogger('baking-api')
-app = create_app(r'config/development.py')
+app = create_app()
 app.app_context().push()
 
 manager = Manager(app)
@@ -61,38 +61,6 @@ def cov():
 
 @manager.command
 def run():
-    logger.info('Instantiating  AI models')
-
-    model_name_str = app.config['MODEL_NAME_STR']
-    model_path = app.config['MODELS_PATH']
-
-    # Loading Tokenizer
-    tokenizer_filename = os.path.join(model_path, model_name_str + '.tokenizer.pickle')
-    embedding_matrix_filename = os.path.join(model_path, model_name_str + '.embmat.npz')
-    artist_genre_tokenizer_filename = os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz')
-
-    logger.info('Loading Model Tokenizer...')
-
-    tokenizer = ml.Tokenizer(
-        model_name=model_name_str,
-        artist_genre_tokenizer_path=artist_genre_tokenizer_filename,
-        tokenizer_path=tokenizer_filename,
-        embedded_matrix_path=embedding_matrix_filename
-    )
-    tokenizer.load()
-
-    logger.info('Loading Model...')
-
-    ml_model = ml.LyricsSkthModel(
-        decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
-        gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
-        model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
-        model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
-        tokenizer=tokenizer
-    )
-    ml_model.load_model()
-
-    # app.app_context().push()
 
     # print(app.url_map)
 
