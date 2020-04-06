@@ -38,8 +38,8 @@ class TestTestingConfig(TestCase):
 
     def test_app_is_testing(self):
         self.assertFalse(self.app.config['SECRET_KEY'] is 'my_precious')
-        self.assertTrue(self.app.config['DEBUG'])
-        self.assertFalse(
+        self.assertFalse(self.app.config['DEBUG'])
+        self.assertTrue(
             self.app.config['SQLALCHEMY_DATABASE_URI'] == 'sqlite:///' + os.path.join('baking/resources',
                                                                                       'flask_bakinglyrics_main.db')
         )
