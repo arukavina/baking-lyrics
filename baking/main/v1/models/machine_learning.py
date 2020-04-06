@@ -41,7 +41,7 @@ class Model(Singleton):
         :param model_file_path: path to model
         """
 
-        logger.info('Checking if "model_file_path" is a valid path: {}'.format(model_file_path))
+        logger.debug('Checking if "model_file_path" is a valid path: {}'.format(model_file_path))
         if not os.path.exists(model_file_path):
             logger.error("[{}] is not a valid path".format(model_file_path))
             raise IOError()
@@ -202,19 +202,19 @@ class LyricsSkthModel(Model):
         :param tokenizer:
         """
 
-        logger.info('Checking if "generator_model_context_path" is a valid path: {}'.format(gen_model_context_path))
+        logger.debug('Checking if "generator_model_context_path" is a valid path: {}'.format(gen_model_context_path))
         if not os.path.exists(gen_model_context_path):
             logger.error("[{}] is not a valid path".format(gen_model_context_path))
             raise IOError()
 
-        logger.info('Checking if "model_verse_emb_context_path" is a valid path: {}'.format(
+        logger.debug('Checking if "model_verse_emb_context_path" is a valid path: {}'.format(
             model_verse_emb_context_path)
         )
         if not os.path.exists(model_verse_emb_context_path):
             logger.error("[{}] is not a valid path".format(model_verse_emb_context_path))
             raise IOError()
 
-        logger.info('Checking if "model_stv_encoder_path" is a valid path: {}'.format(model_stv_encoder_path))
+        logger.debug('Checking if "model_stv_encoder_path" is a valid path: {}'.format(model_stv_encoder_path))
         if not os.path.exists(model_stv_encoder_path):
             logger.error("[{}] is not a valid path".format(model_stv_encoder_path))
             raise IOError()
@@ -267,17 +267,17 @@ class LyricsSkthModel(Model):
 
             try:
 
-                logger.info("Loading Decoder Model from disk...")
-                self.decoder_model = load_model(self.decoder_model_path,
+                logger.debug("Loading Decoder Model from disk...")
+                self.decoder_model = load_model(self.decoder_model_path, compile=False,
                                                 custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.info("Loading Generator Model Context from disk...")
-                self.generator_model_context = load_model(self.generator_model_context_path,
+                logger.debug("Loading Generator Model Context from disk...")
+                self.generator_model_context = load_model(self.generator_model_context_path, compile=False,
                                                           custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.info("Loading Verse Embedding Model Context from disk...")
-                self.model_verse_emb_context = load_model(self.model_verse_emb_context_path,
+                logger.debug("Loading Verse Embedding Model Context from disk...")
+                self.model_verse_emb_context = load_model(self.model_verse_emb_context_path, compile=False,
                                                           custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.info("Loading STV Encoder from disk...")
-                self.model_stv_encoder = load_model(self.model_stv_encoder_path)
+                logger.debug("Loading STV Encoder from disk...")
+                self.model_stv_encoder = load_model(self.model_stv_encoder_path, compile=False)
 
             except IOError as e:
                 logger.error("Is not possible to load Keras models")
@@ -651,7 +651,7 @@ class TitleLSTMModel(Model):
 
         logger.info("Loading model...")
         try:
-            loaded_model = load_model(self.model_file_path + '.h5')
+            loaded_model = load_model(self.model_file_path + '.h5', compile=False)
         except IOError as e:
             logger.error("Is not possible to load Keras model")
             raise e
@@ -807,17 +807,17 @@ class Tokenizer:
         if model_name is None:
             raise AttributeError('model_name can\'t be None')
 
-        logger.info('Checking if "artist_genre_tokenizer_path" is a valid path: {}'.format(artist_genre_tokenizer_path))
+        logger.debug('Checking if "artist_genre_tokenizer_path" is a valid path: {}'.format(artist_genre_tokenizer_path))
         if not os.path.exists(artist_genre_tokenizer_path):
             logger.error("[{}] is not a valid path".format(artist_genre_tokenizer_path))
             raise IOError()
 
-        logger.info('Checking if "tokenizer_path" is a valid path: {}'.format(tokenizer_path))
+        logger.debug('Checking if "tokenizer_path" is a valid path: {}'.format(tokenizer_path))
         if not os.path.exists(tokenizer_path):
             logger.error("[{}] is not a valid path".format(tokenizer_path))
             raise IOError()
 
-        logger.info('Checking if "embedded_matrix_path" is a valid path: {}'.format(embedded_matrix_path))
+        logger.debug('Checking if "embedded_matrix_path" is a valid path: {}'.format(embedded_matrix_path))
         if not os.path.exists(embedded_matrix_path):
             logger.error("[{}] is not a valid path".format(embedded_matrix_path))
             raise IOError()
