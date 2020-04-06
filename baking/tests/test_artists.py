@@ -18,7 +18,6 @@ class TestArtistEndPoints(TestArtists):
     def test_artist_create(self):
         import json
         
-        id_testing = 18232
         headers = {'content-type': 'application/json'}
         data = {"name": "Nichi", "pub_date": "1987-12-05T00:00:00", "genre_id": 1, "country": "US"}
         
@@ -42,7 +41,7 @@ class TestArtistEndPoints(TestArtists):
     def test_artist_update(self):
         import json
         
-        data = {"name": "Beyonce", "pub_date": "1987-12-05T00:00:00", "genre_id": 1, "country": "US"}
+        data = {"name": "beyonce-knowles", "pub_date": "1987-12-05T00:00:00", "genre_id": 1, "country": "US"}
         headers = {'content-type': 'application/json'}
         id_testing = 1
         response = self.client.put('api/v1/artists/{}'.format(id_testing), data = json.dumps(data), headers = headers)
@@ -50,7 +49,10 @@ class TestArtistEndPoints(TestArtists):
         self.assertEqual(response.status_code, 204)
         
     def test_artist_delete(self):
-        id_testing = 18232
+        from baking.main.database.models import Artist
+        from baking.main import db
+        
+        id_testing = db.session.query(db.func.max(Artist.id)).scalar()
         response = self.client.delete('api/v1/artists/{}'.format(id_testing))
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
