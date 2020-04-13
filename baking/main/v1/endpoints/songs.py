@@ -49,6 +49,7 @@ class SongItem(Resource):
         """
         Returns a song with a list of bands.
         """
+        print('Getting song')
         try:
             return Song.query.filter(Song.id == song_id).one()
         except NoResultFound:
