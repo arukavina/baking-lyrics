@@ -2,6 +2,7 @@
 from baking.main import db
 from baking.main.database.models import Artist, Genre, Song
 
+from iso8601 import parse_date
 
 def create_song(data):
     """
@@ -10,8 +11,8 @@ def create_song(data):
     :return:
     """
     title = data.get('title')
-    lyrics = data.get('body')
-    pub_date = data.get('pub_date')
+    lyrics = data.get('lyrics')
+    pub_date = parse_date(data.get('pub_date'))
     artist_id = data.get('artist_id')
     artist = Artist.query.filter(Artist.id == artist_id).one()
     artist.country = data.get('country')
@@ -59,7 +60,7 @@ def create_artist(data):
     """
     name = data.get('name')
     country = data.get('country')
-    pub_date = data.get('pub_date')
+    pub_date = parse_date(data.get('pub_date'))
     genre_id = data.get('genre_id')
     genre = Genre.query.filter(Genre.id == genre_id).one()
 
