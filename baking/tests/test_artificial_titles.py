@@ -5,7 +5,8 @@ import unittest
 from flask_testing import TestCase
 
 # Own
-from baking.manage import app
+#from baking.manage import app
+from flask import current_app as app
 
 
 class TestArtificialTitles(TestCase):

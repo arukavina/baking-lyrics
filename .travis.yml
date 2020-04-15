@@ -15,8 +15,12 @@ before_script:
 script:
   - coverage erase
   - coverage run baking/tests/test_general.py
+  # - coverage run -a baking/tests/test_artificial_songs.py
+  # - coverage run -a baking/tests/test_artificial_titles.py
   - coverage run -a baking/tests/test_config.py
   - coverage run -a baking/tests/test_songs.py
+  - coverage run -a baking/tests/test_artists.py
+  - coverage run -a baking/tests/test_genres.py
   - coverage html
 after_success:
   - bash <(curl -s https://codecov.io/bash)
