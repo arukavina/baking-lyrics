@@ -80,9 +80,9 @@ def create_app(app_config_file=None):
     if app.config['ENV'] == 'production':
         logger.info('Starting {} server at http://{}/api/v1'.format(app.config['ENV'], app.config['SERVER_NAME_LOG']))
     else:
-        logger.info('Starting {} server at http://{}:{}/api/v1'.format(os.getenv('FLASK_RUN_PORT'),
-                                                                       app.config['ENV'],
-                                                                       app.config['SERVER_NAME_LOG']))
+        logger.info('Starting {} server at http://{}:{}/api/v1'.format(app.config['ENV'],
+                                                                       app.config['SERVER_NAME_LOG'],
+                                                                       os.getenv('FLASK_RUN_PORT')))
 
     logger.info('Using DB: {}'.format(app.config['SQLALCHEMY_DATABASE_URI']))
 
