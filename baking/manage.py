@@ -40,7 +40,7 @@ def cov():
         omit=[
             'baking/resources/*.py',
             'baking/static/*.py',
-            'baking/migrations/*.py'
+            'baking/main/migrations/*.py'
         ]
     )
     cov.start()
