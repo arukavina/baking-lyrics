@@ -5,7 +5,8 @@ import unittest
 from flask_testing import TestCase
 
 # Own
-from baking.manage import app
+#from baking.manage import app
+from flask import current_app as app
 
 
 class TestGenres(TestCase):
@@ -63,6 +64,7 @@ class TestGenreEndPoints(TestGenres):
         response = self.client.delete('api/v1/genres/{}'.format(id_testing))
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 204)
-        
+
+
 if __name__ == '__main__':
     unittest.main()

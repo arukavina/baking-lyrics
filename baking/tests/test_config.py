@@ -7,7 +7,8 @@ import logging
 from flask_testing import TestCase
 
 # Own
-from baking.manage import app
+#from baking.manage import app
+from flask import current_app as app
 
 logger = logging.getLogger('baking-api')
 
