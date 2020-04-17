@@ -58,7 +58,7 @@ class TestArtistEndPoints(TestArtists):
         self.assertEqual(response.status_code, 204)
 
     def test_artist_get_by_name(self):
-        partial_artist_name = 'monroe'
+        partial_artist_name = 'beyonce-knowles'
         response = self.client.get('/api/v1/artists/search/{}'.format(partial_artist_name))
         print('\n\nResponse: ' + str(response.status_code))
         self.assertEqual(response.status_code, 200)
