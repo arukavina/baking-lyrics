@@ -48,6 +48,11 @@ SERVER_NAME_LOG = 'localhost'  # So I don't use SERVER_NAME (reserved)
 LOG_DIR = r'logs/'
 LOG_LEVEL = 1
 
+# AWS
+AWS = False
+AWS_BUCKET = 'bakinglyrics'
+AWS_REGION = 'us-east-2'
+
 # Models
 MODELS_PATH = r'baking/resources/models'
 MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'

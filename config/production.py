@@ -45,27 +45,20 @@ Do not enable development when deploying in production.
 SERVER_NAME_LOG = 'ai.bakinglyrics.com'  # So I don't use SERVER_NAME (reserved)
 
 # Logs
-LOG_DIR = r'logs/'
+LOG_DIR = r'/tmp/logs/'
 LOG_LEVEL = 2
 
+# AWS
+AWS = True
+AWS_BUCKET = 'bakinglyrics'
+AWS_REGION = 'us-east-2'
+
 # Models
-MODELS_PATH = r'baking/resources/models'
+MODELS_PATH = r'resources/models'
 MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
 
 # SQLAlchemy settings
 SQLALCHEMY_ECHO = False
 SQLALCHEMY_TRACK_MODIFICATIONS = False
-DATA_FILE_PATH = r'baking/resources/lyrics.csv'
+DATA_FILE_PATH = r'resources/lyrics.csv'
 
-
-# # Log
-# LOG_DIR = r'/mnt/vol/logs/'
-# LOG_LEVEL = 1
-#
-# # Lyrics - LSTM
-# LYRICS_LSTM_MODEL_FILE_PATH = r'/mnt/vol/resources/models/generator_v1.yaml'
-# LYRICS_LSTM_WEIGHTS_FILE_PATH = r'/mnt/vol/resources/models/generator_v1_weights.h5'
-#
-# # Title - LSTM
-# TITLE_LSTM_MODEL_FILE_PATH = '/mnt/vol/resources/models/titler_v1.yaml'
-# TITLE_LSTM_TOKENIZER_FILE_PATH = '/mnt/vol/resources/models/titler_v1_tokenizer.pickle'
