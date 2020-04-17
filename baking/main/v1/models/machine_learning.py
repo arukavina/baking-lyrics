@@ -12,6 +12,10 @@ import datetime
 import numpy as np
 import pickle
 
+# Keras Imports
+from keras_self_attention import SeqSelfAttention
+from keras.models import load_model
+
 # Own
 from baking.main.util import log_utils
 
@@ -191,7 +195,8 @@ class LyricsSkthModel(Model):
                  gen_model_context_path,
                  model_verse_emb_context_path,
                  model_stv_encoder_path,
-                 tokenizer):
+                 tokenizer,
+                 from_aws=False):
 
         """
 
@@ -200,36 +205,47 @@ class LyricsSkthModel(Model):
         :param model_verse_emb_context_path:
         :param model_stv_encoder_path:
         :param tokenizer:
+        :param from_aws: boolean, False.
+            Specifies if the model should be laod from AWS cloud.
         """
 
-        logger.debug('Checking if "generator_model_context_path" is a valid path: {}'.format(gen_model_context_path))
-        if not os.path.exists(gen_model_context_path):
-            logger.error("[{}] is not a valid path".format(gen_model_context_path))
-            raise IOError()
+        if not from_aws:
+            logger.debug('Checking if "generator_model_context_path" is a valid path: {}'.format(gen_model_context_path))
+            if not os.path.exists(gen_model_context_path):
+                logger.error("[{}] is not a valid path".format(gen_model_context_path))
+                raise IOError()
 
-        logger.debug('Checking if "model_verse_emb_context_path" is a valid path: {}'.format(
-            model_verse_emb_context_path)
-        )
-        if not os.path.exists(model_verse_emb_context_path):
-            logger.error("[{}] is not a valid path".format(model_verse_emb_context_path))
-            raise IOError()
+            logger.debug('Checking if "model_verse_emb_context_path" is a valid path: {}'.format(
+                model_verse_emb_context_path)
+            )
+            if not os.path.exists(model_verse_emb_context_path):
+                logger.error("[{}] is not a valid path".format(model_verse_emb_context_path))
+                raise IOError()
 
-        logger.debug('Checking if "model_stv_encoder_path" is a valid path: {}'.format(model_stv_encoder_path))
-        if not os.path.exists(model_stv_encoder_path):
-            logger.error("[{}] is not a valid path".format(model_stv_encoder_path))
-            raise IOError()
+            logger.debug('Checking if "model_stv_encoder_path" is a valid path: {}'.format(model_stv_encoder_path))
+            if not os.path.exists(model_stv_encoder_path):
+                logger.error("[{}] is not a valid path".format(model_stv_encoder_path))
+                raise IOError()
+
+            super().__init__(decoder_model_path)
+
+        else:
+
+            self.model = None
+            self.model_loaded = False
 
         if tokenizer is None:
             raise AttributeError()
         else:
             self.tokenizer = tokenizer
 
-        super().__init__(decoder_model_path)
-
         self.decoder_model_path = decoder_model_path
         self.generator_model_context_path = gen_model_context_path
         self.model_verse_emb_context_path = model_verse_emb_context_path
         self.model_stv_encoder_path = model_stv_encoder_path
+
+        # Read from the cloud. Model paths should S3 resources.
+        self.from_aws = from_aws
 
         self.max_verse_length = 20
         self.max_number_verses = 40
@@ -237,11 +253,11 @@ class LyricsSkthModel(Model):
         self.text = None
         self.characters = None
         self.length = None
-        
+
         # Model Parameters
         self.latent_dim = 100
         self.max_song_length = 300
-        
+
         # Model Binaries
         self.decoder_model = None
         self.generator_model_context = None
@@ -258,26 +274,40 @@ class LyricsSkthModel(Model):
             logger.info('Using cached model')
         else:
 
-            # Keras Imports
-            from keras_self_attention import SeqSelfAttention
-            from keras.models import load_model
-
             # Load YAML and create models
             logger.info("Loading models...")
 
             try:
 
-                logger.debug("Loading Decoder Model from disk...")
-                self.decoder_model = load_model(self.decoder_model_path, compile=False,
-                                                custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.debug("Loading Generator Model Context from disk...")
-                self.generator_model_context = load_model(self.generator_model_context_path, compile=False,
-                                                          custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.debug("Loading Verse Embedding Model Context from disk...")
-                self.model_verse_emb_context = load_model(self.model_verse_emb_context_path, compile=False,
-                                                          custom_objects=SeqSelfAttention.get_custom_objects())
-                logger.debug("Loading STV Encoder from disk...")
-                self.model_stv_encoder = load_model(self.model_stv_encoder_path, compile=False)
+                if self.from_aws:
+
+                    import baking.main.util.aws_utils as aws
+
+                    logger.debug("Loading Decoder Model from AWS...")
+                    self.decoder_model = aws.read_s3_h5_as_tmpfile(self.decoder_model_path,
+                                                                   custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading Generator Model Context from AWS...")
+                    self.generator_model_context = aws.read_s3_h5_as_tmpfile(self.generator_model_context_path,
+                                                                   custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading Verse Embedding Model Context from AWS...")
+                    self.model_verse_emb_context = aws.read_s3_h5_as_tmpfile(self.model_verse_emb_context_path,
+                                                                   custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading STV Encoder from AWS...")
+                    self.model_stv_encoder = aws.read_s3_h5_as_tmpfile(self.model_stv_encoder_path)
+
+                else:
+
+                    logger.debug("Loading Decoder Model from disk...")
+                    self.decoder_model = load_model(self.decoder_model_path, compile=False,
+                                                    custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading Generator Model Context from disk...")
+                    self.generator_model_context = load_model(self.generator_model_context_path, compile=False,
+                                                              custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading Verse Embedding Model Context from disk...")
+                    self.model_verse_emb_context = load_model(self.model_verse_emb_context_path, compile=False,
+                                                              custom_objects=SeqSelfAttention.get_custom_objects())
+                    logger.debug("Loading STV Encoder from disk...")
+                    self.model_stv_encoder = load_model(self.model_stv_encoder_path, compile=False)
 
             except IOError as e:
                 logger.error("Is not possible to load Keras models")
@@ -414,7 +444,8 @@ class LyricsSkthModel(Model):
                                                                        state_h,
                                                                        state_c], batch_size=batch_size)
 
-            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], self.tokenizer.tokenizer, temperature=temperature)
+            idx, logp, p_end, p_newline_feed = sample(prediction[:, 0, :], self.tokenizer.tokenizer,
+                                                      temperature=temperature)
 
             # no end hardcoded
             idx = np.array([self.tokenizer.tokenizer.word_index['xnewlinefeed']
@@ -542,6 +573,7 @@ class LyricsLSTMModel(Model):
 
         self.model = loaded_model
         self.model_loaded = True
+
         logger.info("Loaded models from disk")
 
     def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
@@ -713,9 +745,9 @@ class TitleLSTMModel(Model):
 
             for i in range(max_output_sequence_length):
                 output_tokens = self.model.predict([input_sequence, output_sequence])
-                output_tokens = output_tokens + np.random.normal(size=output_tokens.shape)*temperature
-                pred_sequence[0, ] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))]
-                                      for ii in range(max_output_sequence_length)]
+                output_tokens = output_tokens + np.random.normal(size=output_tokens.shape) * temperature
+                pred_sequence[0,] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))]
+                                     for ii in range(max_output_sequence_length)]
 
                 for ii in range(max_output_sequence_length - 1):
                     output_sequence[0, ii + 1] = pred_sequence[0, ii]
@@ -753,20 +785,19 @@ def sample(preds_p, tokenizer, temperature=1.0):
 
 
 def text_pre_process(text):
-
-    text = str(text)\
-        .lower()\
-        .replace(',', ' ,')\
-        .replace(".", ' .')\
-        .replace("?", ' ?')\
-        .replace("!", ' !')\
-        .replace('\n',  ' xnewlinefeed ')\
-        .replace('\t', ' ')\
-        .replace("'", " '")\
-        .replace('"', '')\
-        .replace("(", '')\
-        .replace(")", '')\
-        .replace("-", '')\
+    text = str(text) \
+        .lower() \
+        .replace(',', ' ,') \
+        .replace(".", ' .') \
+        .replace("?", ' ?') \
+        .replace("!", ' !') \
+        .replace('\n', ' xnewlinefeed ') \
+        .replace('\t', ' ') \
+        .replace("'", " '") \
+        .replace('"', '') \
+        .replace("(", '') \
+        .replace(")", '') \
+        .replace("-", '') \
         .replace('  ', ' ')
 
     return 'xseqstart ' + text.strip() + ' xseqend'
@@ -777,7 +808,6 @@ def text_from_sequence(sequence, reverse_word_map):
 
 
 def encode_verse(verse, tokenizer, model_stv_encoder, max_verse_length=20):
-
     from keras.preprocessing.sequence import pad_sequences
 
     input_sequence = tokenizer.texts_to_sequences([verse])
@@ -795,37 +825,43 @@ def clean_place_holders(lyric):
 
 class Tokenizer:
 
-    def __init__(self, model_name, artist_genre_tokenizer_path, tokenizer_path, embedded_matrix_path):
+    def __init__(self, model_name, artist_genre_tokenizer_path, tokenizer_path, embedded_matrix_path, from_aws=False):
         """
 
         :param model_name:
         :param artist_genre_tokenizer_path:
         :param tokenizer_path:
         :param embedded_matrix_path:
+        :param from_aws: Are models in the cloud?
         """
 
         if model_name is None:
             raise AttributeError('model_name can\'t be None')
 
-        logger.debug('Checking if "artist_genre_tokenizer_path" is a valid path: {}'.format(artist_genre_tokenizer_path))
-        if not os.path.exists(artist_genre_tokenizer_path):
-            logger.error("[{}] is not a valid path".format(artist_genre_tokenizer_path))
-            raise IOError()
+        if not from_aws:
+            logger.debug(
+                'Checking if "artist_genre_tokenizer_path" is a valid path: {}'.format(artist_genre_tokenizer_path))
+            if not os.path.exists(artist_genre_tokenizer_path):
+                logger.error("[{}] is not a valid path".format(artist_genre_tokenizer_path))
+                raise IOError()
 
-        logger.debug('Checking if "tokenizer_path" is a valid path: {}'.format(tokenizer_path))
-        if not os.path.exists(tokenizer_path):
-            logger.error("[{}] is not a valid path".format(tokenizer_path))
-            raise IOError()
+            logger.debug('Checking if "tokenizer_path" is a valid path: {}'.format(tokenizer_path))
+            if not os.path.exists(tokenizer_path):
+                logger.error("[{}] is not a valid path".format(tokenizer_path))
+                raise IOError()
 
-        logger.debug('Checking if "embedded_matrix_path" is a valid path: {}'.format(embedded_matrix_path))
-        if not os.path.exists(embedded_matrix_path):
-            logger.error("[{}] is not a valid path".format(embedded_matrix_path))
-            raise IOError()
+            logger.debug('Checking if "embedded_matrix_path" is a valid path: {}'.format(embedded_matrix_path))
+            if not os.path.exists(embedded_matrix_path):
+                logger.error("[{}] is not a valid path".format(embedded_matrix_path))
+                raise IOError()
 
         self.model_name = model_name
         self.artist_genre_tokenizer_path = artist_genre_tokenizer_path
         self.tokenizer_path = tokenizer_path
         self.embedded_matrix_path = embedded_matrix_path
+
+        # If models hav to be read from the cloud
+        self.aws = from_aws
 
         self._embedding_matrix = None
         self._genre_tokenizer = None
@@ -876,27 +912,56 @@ class Tokenizer:
 
     def load(self):
         """
-        Opens and loads model specific files imn memory
+        Opens and loads model specific files in memory
         :return: None
         """
-        logger.info('Loading tokenizers')
 
-        agt = np.load(self.artist_genre_tokenizer_path, allow_pickle=True)
-        self._genre_tokenizer = agt['genre_tokenizer'].tolist()
-        self._artist_tokenizer = agt['artist_tokenizer'].tolist()
+        if self.aws:
 
-        self._embedding_matrix = np.load(self.embedded_matrix_path)['embedding_matrix']
+            import baking.main.util.aws_utils as aws
 
-        with open(self.tokenizer_path, 'rb') as handle:
-            self._tokenizer = pickle.load(handle)
+            logger.info('Loading tokenizers from AWS cloud')
 
-        self._reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
+            # Artist/Genre Tokenizer
+            agt = aws.read_s3_pickle_as_tmpfile(object_name=self.artist_genre_tokenizer_path, allow_pickle=True)
 
-        logger.info("Tokenizers loaded from disk successfully")
+            self._genre_tokenizer = agt['genre_tokenizer'].tolist()
+            self._artist_tokenizer = agt['artist_tokenizer'].tolist()
+
+            # Embedding Matrix
+            em = aws.read_s3_pickle_as_tmpfile(object_name=self.embedded_matrix_path)
+            self._embedding_matrix = em['embedding_matrix']
+
+            # Tokenizer
+            tmp_file = aws.read_s3_pickle_tmp(object_name=self.tokenizer_path)
+            with open(tmp_file.name, 'rb') as handle:
+                self._tokenizer = pickle.load(handle)
+
+            self._reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
+
+        else:
+
+            logger.info('Loading tokenizers from disk')
+
+            # Artist/Genre Tokenizer
+            agt = np.load(self.artist_genre_tokenizer_path, allow_pickle=True)
+
+            self._genre_tokenizer = agt['genre_tokenizer'].tolist()
+            self._artist_tokenizer = agt['artist_tokenizer'].tolist()
+
+            # Embedding Matrix
+            self._embedding_matrix = np.load(self.embedded_matrix_path)['embedding_matrix']
+
+            # Tokenizer
+            with open(self.tokenizer_path, 'rb') as handle:
+                self._tokenizer = pickle.load(handle)
+
+            self._reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
+
+            logger.info("Tokenizers loaded from disk successfully")
 
 
 if __name__ == '__main__':
-
     timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
 
     settings = dict(
@@ -969,7 +1034,7 @@ if __name__ == '__main__':
                                            enc_vector_song_mean,
                                            _artist_token,
                                            _genre_token,
-                                           num_generated=1*2,
+                                           num_generated=1 * 2,
                                            max_length=128,
                                            temperature=0.7,
                                            depth_search_replace=5,
