@@ -317,7 +317,7 @@ class LyricsSkthModel(Model):
                 raise e
 
             self.model_loaded = True
-            logger.info("Models loaded from disk")
+            logger.info("Models loaded successfully")
 
     def generate_sentence(self,
                           encoded_vector_title,
