@@ -108,12 +108,12 @@ def create_app(app_config_file=None):
         model_path = app.config['MODELS_PATH']
         aws = app.config['AWS']
 
+        print('AWS: ' + str(aws))
+
         # Loading Tokenizer
         tokenizer_filename = os.path.join(model_path, model_name_str + '.tokenizer.pickle')
         embedding_matrix_filename = os.path.join(model_path, model_name_str + '.embmat.npz')
         artist_genre_tokenizer_filename = os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz')
-
-        logger.info('Loading Model Tokenizer...')
 
         tokenizer = ml.Tokenizer(
             model_name=model_name_str,
@@ -123,8 +123,6 @@ def create_app(app_config_file=None):
             from_aws=aws
         )
         tokenizer.load()
-
-        logger.info('Loading Model...')
 
         ml_model = ml.LyricsSkthModel(
             decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
