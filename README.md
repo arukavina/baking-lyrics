@@ -12,10 +12,10 @@ Baking Lyrics
 
 # Intro
 
-Baking-Lyricis works based on a group of Machine and Deep learning models that generates music lyrics and titles automatically.
-Currently available in Spanish and English.
+Baking-Lyrics works based on a group of Machine and Deep learning models that generates music lyrics and titles automatically.
+Currently available in English (soon Spanish as well).
 
-Baking Lyrics was developed by a team of music; machine learning and software development enthusiasts all the way from Buenos Aires, Argentina. Our country is well know for its rock scene so we were tempted on using a 100% rock corpus but our metal loving friends convinced us of accepting other genres. Oh and there is some cumbia and reggaeton in there as well!
+Baking Lyrics was developed by a team of music; machine learning and software development enthusiasts all the way from Buenos Aires, Argentina. Our country is well know for its rock scene so we were tempted on using a 100% rock corpus but our metal loving friends convinced us of accepting other genres. 
 
 ## Baking Lyrics: An automatic lyrics generator
 
@@ -85,4 +85,19 @@ The application of architecture to text summarization is as follows:
 N-gram models are probabilistic models that assign probabilities on the “next” word in a sequence, given the n-1 previous words. This algorithm takes in an array of Strings (the songs in our corpus), and uses punctuation to select beginning and end tokens on each sentence.
 Baking lyrics uses a trigram model, since it calculates the frecuencies in which every three-word combination appear on each band's corpus, and extrapolates the probabilities from there.
 
+# FAQ
+_There is always something that breaks_
 
+## TensorFlow
+
+If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to upgrade the [requirements file](requirements/dev.txt) accordingly. 
+
+##Environment Variables
+
+## When using **flask run**
+
+1) PROD: PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/production.py');FLASK_ENV=production;FLASK_RUN_PORT=8003
+2) TEST: PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/testing.py');FLASK_ENV=testing;FLASK_RUN_PORT=8001
+3) DEV:PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/development.py');FLASK_RUN_PORT=8000;FLASK_DEBUG=0;FLASK_ENV=development. 
+Feel free to enable debug mode in DEV
+ 
