@@ -5,13 +5,13 @@ import unittest
 from flask_testing import TestCase
 
 # Own
-#from baking.manage import app
-from flask import current_app as app
+from baking.manage import app
+#from flask import current_app as app
 
 
 class TestGenres(TestCase):
     def create_app(self):
-        app.config.from_object('config.development')
+        app.config.from_object('config.testing')
         return app
 
 

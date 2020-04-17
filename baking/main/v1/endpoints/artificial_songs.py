@@ -28,8 +28,8 @@ ns = api.namespace('artificial_songs', description='Operations related to artifi
 def generate_song(input_texts, artist, genre, title, word_count=None):
     start_time = time.time()
 
-    logger.info('Generating Lyrics for (input_text: {})::(artist: {})::(genre:{})::(title:{})::(word_count:{})'.format(
-        input_texts, artist, genre, title, word_count
+    logger.info('Generating Lyrics for (input_text: [{}...])::(artist: {})::(genre:{})::(title:{})::(word_count:{})'.format(
+        ' '.join(input_texts)[0:15], artist, genre, title, word_count
     ))
 
     ai = ml.LyricsSkthModel()
