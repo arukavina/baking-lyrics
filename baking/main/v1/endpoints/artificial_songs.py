@@ -246,8 +246,6 @@ class ArtificialSongItem(Resource):
             abort(500, "Internal Server Error: {}".format(e))
 
 
-
-
 def get_model_class(model):
     """
 
