@@ -15,8 +15,12 @@ before_script:
 script:
   - coverage erase
   - coverage run baking/tests/test_general.py
+  # - coverage run -a baking/tests/test_artificial_songs.py
+  # - coverage run -a baking/tests/test_artificial_titles.py
   - coverage run -a baking/tests/test_config.py
   - coverage run -a baking/tests/test_songs.py
+  - coverage run -a baking/tests/test_artists.py
+  - coverage run -a baking/tests/test_genres.py
   - coverage html
 after_success:
   - bash <(curl -s https://codecov.io/bash)
@@ -32,4 +36,5 @@ deploy:
     secure: a1fryON3t/kNAIv8lrsGVBa8F0DBSTsOlc3UdEAtB0doa4Rjy8AikJqekR4muCatc6X2XFRrR1Swg8DPUp/L5cCiCF5iMQDJAQpUuM7XwV8ZDnU07wuozkrzcvzT7/IYXnBKGfbILuA+37HALI4lAf/nhLyZHkKPfTp5wC6Mf/gGIf2YNLYszwFylCLhzACjB/xyiZnv14q+6rXpbwqd2rDE62dUdRzpqtFVh9ubcUrLMjRoqqIuIHve+u2pH8q0bj/SzJZ0MG+gMz/9Gm9UNbVgRz9dvro9R4VSFQoykMtztPYj2rQgZcAYWFsUfFiew/df9lmK0BdMwdGvHhZL0KFYmDqbBfHHaLZIp+8pOlHFKkxxlxNmO092aNUOSbLdK3uqGXzxrSlJ41vsHLIPzZmxGKhB0kPQM3ifFvzeQxtm1U+Q829/2hEsoD7PpkFmf9wH7HdBCFJ2SNXqcOsleClY6NpJicTo+QiQwsb4FEJ/e9kAD/UEmjmRmupeSyvnluCZQoym2zMUuDR4AtDvEV6emWYnUEylOUk0Ok4UJJ1ixEJ9JlY38mKw5g/Z3mf9feRM9HuZI6idIUs9hNfyvKJ/kDbpybI4VIjQpVGlogNFntelfPMfulZYsckSDm+X4cMFytih4QFA5GE+X81u22HxlqgtPUfeiZPfPhziMEU=
 after_deploy:
   - python baking/refresh_database.py
+  - export FLASK_APP=baking.main:create_app(r'config/production.py')
 

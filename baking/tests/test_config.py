@@ -8,6 +8,7 @@ from flask_testing import TestCase
 
 # Own
 from baking.manage import app
+#from flask import current_app as app
 
 logger = logging.getLogger('baking-api')
 
@@ -15,8 +16,6 @@ logger = logging.getLogger('baking-api')
 class TestDevelopmentConfig(TestCase):
     def create_app(self):
         app.config.from_object('config.development')
-        print('TestDevelopmentConfig')
-
         return app
 
     def test_app_is_development(self):
@@ -32,8 +31,6 @@ class TestDevelopmentConfig(TestCase):
 class TestTestingConfig(TestCase):
     def create_app(self):
         app.config.from_object('config.testing')
-        print('TestTestingConfig')
-
         return app
 
     def test_app_is_testing(self):
@@ -48,8 +45,6 @@ class TestTestingConfig(TestCase):
 class TestProductionConfig(TestCase):
     def create_app(self):
         app.config.from_object('config.production')
-        print('TestProdConfig')
-
         return app
 
     def test_app_is_production(self):
