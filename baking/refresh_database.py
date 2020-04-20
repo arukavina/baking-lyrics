@@ -17,7 +17,18 @@ print(os.getenv('PYTHONPATH'))
 app = create_app()  # Is using ENV Variable APP_CONFIG_FILE=config/development.py
 logger = logging.getLogger('baking-api')
 
-song_data = pd.read_csv(app.config.get('DATA_FILE_PATH'))
+aws = app.config.get('AWS')
+resource = app.config.get('DATA_FILE_PATH')
+
+if aws:
+    import baking.main.util.aws_utils as aws
+
+    logger.debug("Loading {} file from AWS...".format(resource))
+    song_data = aws.read_s3_csv_as_tmpfile(resource)
+
+else:
+    logger.debug("Loading {} file from disk...".format(resource))
+    song_data = pd.read_csv(resource)
 
 db.init_app(app)
 app.app_context().push()
@@ -95,4 +106,3 @@ def create_artificial():
 if __name__ == '__main__':
     refresh()
     create_artificial()
-
