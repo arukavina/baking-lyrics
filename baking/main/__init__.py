@@ -12,6 +12,7 @@ from flask_bcrypt import Bcrypt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_restplus import Api
+from flask_migrate import Migrate
 
 from sqlalchemy.orm.exc import NoResultFound
 from config import default
@@ -88,6 +89,7 @@ def create_app(app_config_file=None):
 
     # Igniting DB
     db.init_app(app)
+    migrate = Migrate(app, db)
 
     # Bcrypt
     flask_bcrypt.init_app(app)
