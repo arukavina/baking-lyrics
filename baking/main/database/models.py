@@ -1,39 +1,12 @@
 # Generic
 from datetime import datetime
 
-from baking.main import db, flask_bcrypt
-
-# class User(UserMixin, db.Model):
-#     """ User Model for storing user related details """
-#     __tablename__ = 'users'
-#     id = db.Column(db.Integer, primary_key=True)
-#     social_id = db.Column(db.String(64), nullable=False, unique=True)
-#     nickname = db.Column(db.String(64), nullable=False)
-#     email = db.Column(db.String(64), nullable=True)
-#     registered_on = db.Column(db.DateTime, nullable=False)
-#     admin = db.Column(db.Boolean, nullable=False, default=False)
-#     auth_method = db.Column(db.String(50))
-#     member_since = db.Column(db.DateTime)
-#     password_hash = db.Column(db.String(255))
-#
-#     @property
-#     def password(self):
-#         raise AttributeError('password: write-only field')
-#
-#     @password.setter
-#     def password(self, password):
-#         self.password_hash = flask_bcrypt.generate_password_hash(password).decode('utf-8')
-#
-#     def check_password(self, password):
-#         return flask_bcrypt.check_password_hash(self.password_hash, password)
-#
-#     def __repr__(self):
-#         return "<User '{}'>".format(self.username)
+from baking.main import db
 
 
 class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50))
+    name = db.Column(db.String(90))
 
     def __init__(self, name):
         self.name = name
@@ -44,9 +17,9 @@ class Genre(db.Model):
 
 class Artist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80))
+    name = db.Column(db.String(160))
     formation_date = db.Column(db.DateTime)
-    country = db.Column(db.String(80))
+    country = db.Column(db.String(120))
     genre_id = db.Column(db.Integer, db.ForeignKey(Genre.id))
     genre = db.relationship(Genre, backref=db.backref('artist', lazy='dynamic'))
 
@@ -66,7 +39,7 @@ class Artist(db.Model):
 
 class Song(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(50))
+    title = db.Column(db.String(150))
     lyrics = db.Column(db.Text)
     publication_date = db.Column(db.DateTime)
     artist_id = db.Column(db.Integer, db.ForeignKey(Artist.id))
@@ -99,7 +72,7 @@ class Song(db.Model):
 
 class ArtificialTitle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(50))
+    title = db.Column(db.String(180))
     creation_date = db.Column(db.DateTime)
 
     def __init__(self, title, creation_date=None):
@@ -118,7 +91,7 @@ class ArtificialSong(db.Model):
     artificial_title_id = db.Column(db.Integer, db.ForeignKey(ArtificialTitle.id))
     artificial_title = db.relationship(ArtificialTitle, backref=db.backref('artificialSong', lazy='dynamic'))
     lyrics = db.Column(db.Text)
-    model = db.Column(db.String(50))
+    model = db.Column(db.String(150))
     creation_date = db.Column(db.DateTime)
     # user_id = db.Column(db.Integer, db.ForeignKey(User.id))
     # user = db.relationship(User, backref=db.backref('artificialSong', lazy='dynamic'))
