@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: fb96b071ff42
+Revision ID: 1a2816b53482
 Revises: 
-Create Date: 2018-05-27 19:54:44.929694
+Create Date: 2020-04-24 16:38:08.013388
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'fb96b071ff42'
+revision = '1a2816b53482'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -29,21 +29,6 @@ def upgrade():
     sa.Column('name', sa.String(length=50), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('user',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('email', sa.String(length=255), nullable=False),
-    sa.Column('registered_on', sa.DateTime(), nullable=False),
-    sa.Column('admin', sa.Boolean(), nullable=False),
-    sa.Column('public_id', sa.String(length=100), nullable=True),
-    sa.Column('username', sa.String(length=50), nullable=True),
-    sa.Column('password_hash', sa.String(length=100), nullable=True),
-    sa.Column('auth_method', sa.String(length=50), nullable=True),
-    sa.Column('member_since', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('email'),
-    sa.UniqueConstraint('public_id'),
-    sa.UniqueConstraint('username')
-    )
     op.create_table('artist',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=80), nullable=True),
@@ -55,15 +40,13 @@ def upgrade():
     )
     op.create_table('artificial_song',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('title_id', sa.Integer(), nullable=True),
+    sa.Column('artificial_title_id', sa.Integer(), nullable=True),
     sa.Column('lyrics', sa.Text(), nullable=True),
     sa.Column('model', sa.String(length=50), nullable=True),
     sa.Column('creation_date', sa.DateTime(), nullable=True),
-    sa.Column('user_id', sa.Integer(), nullable=True),
-    sa.Column('artist_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['artist_id'], ['artist.id'], ),
-    sa.ForeignKeyConstraint(['title_id'], ['artificial_title.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.Column('base_artist_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['artificial_title_id'], ['artificial_title.id'], ),
+    sa.ForeignKeyConstraint(['base_artist_id'], ['artist.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('song',
@@ -83,7 +66,6 @@ def downgrade():
     op.drop_table('song')
     op.drop_table('artificial_song')
     op.drop_table('artist')
-    op.drop_table('user')
     op.drop_table('genre')
     op.drop_table('artificial_title')
     # ### end Alembic commands ###
