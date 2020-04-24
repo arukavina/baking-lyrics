@@ -89,13 +89,14 @@ def create_app(app_config_file=None):
 
     # Igniting DB
     db.init_app(app)
+
+    # Other
+    from baking.main import v1
+
     migrate = Migrate(app, db)
 
     # Bcrypt
     flask_bcrypt.init_app(app)
-
-    # Other
-    from baking.main import v1
 
     app = v1.init_app(app, api)
     app.app_context().push()
