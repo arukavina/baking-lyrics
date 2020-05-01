@@ -5,6 +5,8 @@ from baking.main import api
 artist = api.model('Artist', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of a artist'),
     'name': fields.String(required=True, description='Artist name'),
+    'clean_name': fields.String(required=True, description='Clean artist name'),
+    'cover': fields.Boolean(description='If Artist is allowed to be selected in front page'),
     'country': fields.String(required=True, description='Artist\'s origin country'),
     'formation_date': fields.DateTime,
     'genre': fields.String(attribute='genre.name'),
