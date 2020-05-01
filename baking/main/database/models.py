@@ -18,23 +18,28 @@ class Genre(db.Model):
 class Artist(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(160))
+    clean_name = db.Column(db.String(160))
+    cover = db.Column(db.Boolean, nullable=True)
     formation_date = db.Column(db.DateTime)
     country = db.Column(db.String(120))
     genre_id = db.Column(db.Integer, db.ForeignKey(Genre.id))
     genre = db.relationship(Genre, backref=db.backref('artist', lazy='dynamic'))
 
-    def __init__(self, name, country, genre, formation_date=None):
+    def __init__(self, name, clean_name, country, genre, formation_date=None, cover=False):
         self.name = name
+        self.clean_name = clean_name
         self.country = country
 
         if formation_date is None:
             formation_date = datetime.utcnow()
+
+        self.cover = cover
         self.formation_date = formation_date
 
         self.genre = genre
 
     def __repr__(self):
-        return '<Artist %r>' % self.name
+        return '<Artist %r %r>' % (self.clean_name, self.name)
 
 
 class Song(db.Model):
