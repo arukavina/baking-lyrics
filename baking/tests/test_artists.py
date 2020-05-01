@@ -6,7 +6,9 @@ from flask_testing import TestCase
 
 # Own
 from baking.manage import app
-#from flask import current_app as app
+
+
+# from flask import current_app as app
 
 
 class TestArtists(TestCase):
@@ -20,7 +22,11 @@ class TestArtistEndPoints(TestArtists):
         import json
 
         headers = {'content-type': 'application/json'}
-        data = {"name": "Nichi", "pub_date": "1987-12-05T00:00:00", "genre_id": 1, "country": "US"}
+        data = {"name": "Nichi",
+                "clean_name": "Beyonce",
+                "pub_date": "1987-12-05T00:00:00",
+                "genre_id": 1,
+                "country": "US"}
 
         response = self.client.post('api/v1/artists/', data=json.dumps(data), headers=headers)
         print('\n\nResponse: ' + str(response.status_code))
@@ -41,7 +47,11 @@ class TestArtistEndPoints(TestArtists):
     def test_artist_update(self):
         import json
 
-        data = {"name": "beyonce-knowles", "pub_date": "1987-12-05T00:00:00", "genre_id": 1, "country": "US"}
+        data = {"name": "beyonce-knowles",
+                "clean_name": "Beyonce",
+                "pub_date": "1987-12-05T00:00:00",
+                "genre_id": 1,
+                "country": "US"}
         headers = {'content-type': 'application/json'}
         id_testing = 1
         response = self.client.put('api/v1/artists/{}'.format(id_testing), data=json.dumps(data), headers=headers)
