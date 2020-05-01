@@ -5,6 +5,7 @@ import logging
 from flask import request
 from flask_restplus import Resource
 from flask_restplus import abort
+from sqlalchemy import func
 from sqlalchemy.orm.exc import NoResultFound
 
 # Own
@@ -98,14 +99,47 @@ class GetArtistByName(Resource):
         if len(partial_artist_name) < 3:
             abort(400, 'A minimum of 3 characters are needed.')
 
-        artists = Artist.query
-        artists = artists.filter(Artist.name.like('%' + partial_artist_name + '%'))
+        artists = Artist.query.filter(Artist.name.like('%' + partial_artist_name + '%'))
         artists = artists.order_by(Artist.name).all()
 
         if len(artists) == 0:
             abort(404, 'Artist not found')
         else:
             return artists
+
+
+@ns.route('/random/<number_of_artists>')
+@api.response(400, 'Number of artists between 6 and 20 is needed.')
+@api.response(404, 'Famous artist not found.')
+@api.response(404, 'Artist not found.')
+class GetNRandomFamousArtists(Resource):
+
+    @api.marshal_with(artist)
+    def get(self, number_of_artists):
+        """
+        Returns a a list of <number_of_artists> random famous artists.
+        """
+
+        number_of_artists = int(number_of_artists)
+        if number_of_artists < 6:
+            abort(400, 'A minimum of 6 artists are to be retrieved.')
+        if number_of_artists > 20:
+            abort(400, 'A maximum of 20 artists are to be retrieved.')
+
+        famous_artists = Artist.query.filter(Artist.cover == 1)  # Cover is 1 if artists should be on front page (cover)
+
+        if len(famous_artists.all()) == 0:
+            abort(404, 'No famous artists found')
+
+        if len(famous_artists.all()) < number_of_artists:
+            number_of_artists = len(famous_artists.all())
+
+        artists = famous_artists.order_by(func.random()).all()[:number_of_artists]
+
+        if len(artists) == 0:
+            abort(404, 'No artists found')
+
+        return artists
 
 
 @ns.route('/archive/<int:year>/')
