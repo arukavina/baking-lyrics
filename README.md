@@ -10,7 +10,7 @@ We wish you the best so play as much as you want, release your creativity, innov
 Best regards,
 The Baking-Lyrics coding band.
 
-[www.bakinglyrics.com](www.bakinglyrics.com)
+[www.bakinglyrics.com](http://www.bakinglyrics.com)
 
 [![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest)
 
