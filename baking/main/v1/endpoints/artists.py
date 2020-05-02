@@ -126,7 +126,7 @@ class GetNRandomFamousArtists(Resource):
         if number_of_artists > 20:
             abort(400, 'A maximum of 20 artists are to be retrieved.')
 
-        famous_artists = Artist.query.filter(Artist.cover == 1)  # Cover is 1 if artists should be on front page (cover)
+        famous_artists = Artist.query.filter(Artist.cover)  # Cover is 1 if artists should be on front page (cover)
 
         if len(famous_artists.all()) == 0:
             abort(404, 'No famous artists found')
