@@ -99,8 +99,10 @@ class GetArtistByName(Resource):
         if len(partial_artist_name) < 3:
             abort(400, 'A minimum of 3 characters are needed.')
 
-        artists = Artist.query.filter(Artist.name.like('%' + partial_artist_name + '%'))
-        artists = artists.order_by(Artist.name).all()
+        partial_artist_name = partial_artist_name.lower()
+
+        artists = Artist.query.filter(Artist.clean_name.ilike('%' + partial_artist_name + '%'))
+        artists = artists.order_by(Artist.clean_name).all()
 
         if len(artists) == 0:
             abort(404, 'Artist not found')
