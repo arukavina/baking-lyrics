@@ -8,7 +8,8 @@ But is for everyone. Our humble contribution to those who make our lives wonderf
 We wish you the best so play as much as you want, release your creativity, innovate,  copy & paste.
 
 Best regards,
-The Baking-Lyrics coding band.
+
+The Baking-Lyrics **coding** band.
 
 [www.bakinglyrics.com](http://www.bakinglyrics.com)
 
@@ -72,17 +73,17 @@ The authors considered the following question:
 
 they gave evidence for this by proposing a model for learning high-quality sentence vectors without a particular supervised task in mind. Using word vector learning as inspiration, they proposed an objective function that abstracts the skip-gram model of [8] to the sentence level.  
 That is, instead of using a word to predict its surrounding context, they instead encode a sentence to predict the sentences around it.  
-Thus, any composition operator can be substituted as a sentence *encoder* and only the objective function becomes modified. 
+Thus, any composition operator can be substituted as a sentence **encoder** and only the objective function becomes modified. 
 
 The following figure illustrates the model:
 
 ![model](img/fig1.png "Skip-Thought Vectors model")
 
-They called their model: *skip-thoughts* and vectors induced by our model are called *skip-thought vectors.*
+They called their model: **skip-thoughts** and vectors induced by our model are called **skip-thought vectors**.
 
 ### Encoder-Decoder
 
-*Encoder*. Let w1i,...,wNi be the words in sentences i where N is the number of words in the sentence. 
+**Encoder**. Let w1i,...,wNi be the words in sentences i where N is the number of words in the sentence. 
 At each time step, the encoder produces a hidden state ht/i which can be interpreted as the representation of the sequence
 w1i,...,wti. 
 The hidden state hNi thus represents the full sentence. To encode a sentence, we iterate the following sequence of equations (dropping the subscript i):
@@ -92,7 +93,7 @@ The hidden state hNi thus represents the full sentence. To encode a sentence, we
 where  ̄ht is the proposed state update at time-t,z-t is the update gate,rt is the reset gate () denotes a component-wise product. 
 oth update gates takes values between zero and one.Decoder.
 
-*The decoder* is a neural language model which conditions on the encoder output hi. 
+**The decoder** is a neural language model which conditions on the encoder output hi. 
 The computation is similar to that of the encoder except we introduce matrices Cz,Cr and C that are used to bias the update gate, 
 reset gate and hidden state computation by the sentence vector.  One decoder is used for the next sentences i+1 while a second decoder is used for the previous sentences i−1. 
 Separate parameters are used for each decoder with the exception of the vocabulary matrixV, which is the weight matrix connecting the decoder’s hidden state for computing a distribution over words. 
@@ -154,7 +155,7 @@ _There is always something that breaks_
 
 If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to upgrade the [requirements file](requirements/dev.txt) accordingly. 
 
-##Environment Variables
+## Environment Variables
 
 ### If using **flask run**
 `flask run`
