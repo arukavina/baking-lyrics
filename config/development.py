@@ -46,7 +46,7 @@ SERVER_NAME_LOG = 'localhost'  # So I don't use SERVER_NAME (reserved)
 
 # Logs
 LOG_DIR = r'logs/'
-LOG_LEVEL = 1
+LOG_LEVEL = 2
 
 # AWS
 AWS = False
