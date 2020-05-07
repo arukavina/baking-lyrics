@@ -1,4 +1,4 @@
-![www.bakinglyrics.com][logo]
+![bakinglyrics.com][logo]
 
 [logo]: img/logo.png "Baking Lyrics logo" 
 
@@ -11,7 +11,7 @@ Best regards,
 
 The Baking-Lyrics **coding** band.
 
-[www.bakinglyrics.com](http://www.bakinglyrics.com)
+[www.bakinglyrics.com](https://www.bakinglyrics.com)
 
 [![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest)
 
