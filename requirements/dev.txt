@@ -3,16 +3,16 @@
 -r prd.txt
 
 # Debug
-Flask-DebugToolbar==0.10.1
-tensorboard==2.1.1
+#Flask-DebugToolbar==0.10.1
+tensorboard==2.5.0
 https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow_cpu-2.1.0-cp37-cp37m-manylinux2010_x86_64.whl
-tensorflow-estimator==2.1.0
+tensorflow-estimator==2.5.0
 
 # PEP8
 pylint==1.8.1
 
 # Coverage
-coverage==5.0.3
+coverage==5.5
 
 # Documentation
 Sphinx==1.6.5
