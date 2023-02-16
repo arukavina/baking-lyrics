@@ -46,14 +46,14 @@ keras-nightly==2.5.0.dev2021032900
 Keras-Preprocessing==1.1.2
 keras-self-attention==0.42.0
 limits==1.5.1
-Mako==1.1.4
+Mako==1.2.2
 Markdown==3.3.4
 MarkupSafe==2.0.1
 numpy==1.21.1
 oauthlib==3.1.1
 opt-einsum==3.3.0
 pandas==1.3.0
-protobuf==3.17.3
+protobuf==3.18.3
 psycopg2==2.7.5
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
