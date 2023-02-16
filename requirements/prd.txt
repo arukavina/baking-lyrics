@@ -46,7 +46,7 @@ keras-nightly==2.5.0.dev2021032900
 Keras-Preprocessing==1.1.2
 keras-self-attention==0.42.0
 limits==1.5.1
-Mako==1.1.4
+Mako==1.2.2
 Markdown==3.3.4
 MarkupSafe==2.0.1
 numpy==1.21.1
