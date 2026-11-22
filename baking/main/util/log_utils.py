@@ -24,7 +24,8 @@ _INT_TO_LEVEL = {
 
 def setup_logging(name, time_stamp, args):
     """
-    Sets up the named logger with a file handler and a stdout handler.
+    Sets up the named logger with a stdout handler and, when LOG_DIR is set and writable, a file handler.
+    With LOG_DIR = None (production on Lambda, whose filesystem is read-only except /tmp) only stdout is used.
     Calling it again (e.g. on repeated create_app calls) replaces the handlers previously added here,
     so no duplicated output is produced.
     :param name: Logger instance name
@@ -35,9 +36,11 @@ def setup_logging(name, time_stamp, args):
 
     named_level = logging.DEBUG
 
-    log_dir = Path(args.get('LOG_DIR', 'logs'))
-    if not log_dir.is_absolute():
-        log_dir = _REPO_ROOT / log_dir
+    log_dir = args.get('LOG_DIR', 'logs')
+    if log_dir:
+        log_dir = Path(log_dir)
+        if not log_dir.is_absolute():
+            log_dir = _REPO_ROOT / log_dir
 
     level = args.get('LOG_LEVEL', 1)
 
@@ -46,11 +49,14 @@ def setup_logging(name, time_stamp, args):
     except KeyError:
         print('[WARNING] - Verbosity non-existent, using DEBUG')
 
-    log_dir.mkdir(parents=True, exist_ok=True)
+    if log_dir:
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as error:
+            print(f'[WARNING] - Cannot create {log_dir} ({error}), logging to stdout only')
+            log_dir = None
 
-    print(f"Logging to {log_dir} named: {name}")
-
-    log_file = f'{name}_{time_stamp}.log'
+    print(f"Logging to {log_dir or 'stdout'} named: {name}")
 
     # Logger
     my_log = logging.getLogger(name)
@@ -65,15 +71,13 @@ def setup_logging(name, time_stamp, args):
                                   datefmt='%m/%d/%Y %H:%M:%S')
 
     # Handlers
-    fh_path = log_dir / log_file
-
-    file_handler = logging.FileHandler(fh_path, encoding='utf-8')
-    file_handler.setFormatter(formatter)
+    if log_dir:
+        file_handler = logging.FileHandler(log_dir / f'{name}_{time_stamp}.log', encoding='utf-8')
+        file_handler.setFormatter(formatter)
+        my_log.addHandler(file_handler)
 
     std_handler = logging.StreamHandler(sys.stdout)
     std_handler.setFormatter(formatter)
-
-    my_log.addHandler(file_handler)
     my_log.addHandler(std_handler)
 
 

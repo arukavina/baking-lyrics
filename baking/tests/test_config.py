@@ -113,3 +113,31 @@ def test_test_config_overrides_config_file(make_app):
     app = make_app('config/testing.py', SERVER_NAME_LOG='overridden')
 
     assert app.config['SERVER_NAME_LOG'] == 'overridden'
+
+
+def test_production_logs_to_stdout_only(tmp_path, config_env, monkeypatch):
+    """On Lambda the filesystem is read-only except /tmp: production must not write log files."""
+    import logging
+
+    from baking.main import create_app
+
+    config_env(SECRET_KEY=PROD_SECRET)
+    monkeypatch.chdir(tmp_path)
+    create_app('config/production.py')
+
+    handlers = logging.getLogger('baking-api').handlers
+    assert [type(handler) for handler in handlers] == [logging.StreamHandler]
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_unwritable_log_dir_falls_back_to_stdout(tmp_path):
+    import logging
+
+    from baking.main.util import log_utils
+
+    blocker = tmp_path / 'not-a-dir'
+    blocker.write_text('x')
+
+    log_utils.setup_logging('baking-api-test', 'ts', {'LOG_DIR': str(blocker / 'logs'), 'LOG_LEVEL': 3})
+
+    assert [type(h) for h in logging.getLogger('baking-api-test').handlers] == [logging.StreamHandler]

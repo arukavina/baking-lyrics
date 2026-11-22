@@ -1,6 +1,3 @@
-import os
-import tempfile
-
 DEBUG = False
 '''
 Whether debug mode is enabled.
@@ -40,7 +37,7 @@ Do not enable development when deploying in production.
 SERVER_NAME_LOG = 'ai.bakinglyrics.com'  # So I don't use SERVER_NAME (reserved)
 
 # Logs
-LOG_DIR = os.path.join(tempfile.gettempdir(), 'logs')
+LOG_DIR = None  # stdout only: Lambda sends it to CloudWatch and its filesystem is read-only except /tmp
 LOG_LEVEL = 2
 
 # AWS
