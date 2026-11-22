@@ -7,7 +7,6 @@ The app is built from the config file named by the APP_CONFIG_FILE environment v
 Usage:
     gunicorn baking.manage:app
     flask --app baking.manage run --port 9090      # development server (the historical port is 9090)
-    flask --app baking.manage db upgrade           # Flask-Migrate commands (db init/migrate/upgrade/...)
     python -m baking.manage                        # same as `flask run` on 0.0.0.0:9090
 
 Tests are run with pytest (`uv run pytest`).
