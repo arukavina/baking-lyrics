@@ -48,15 +48,19 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 
 - Request the current models and the `lyrics.csv` dataset from [Andrei Rukavina](mailto:rukavina.andrei@gmail.com).
 - Put the model files under `baking/resources/models/` and `lyrics.csv` under `baking/resources/`.
-- No dataset yet? Seed with the small sample instead: set `DATA_FILE_PATH=baking/resources/lyrics_4_tests.csv` before running the seed command.
+- No dataset yet? Seed with the small sample instead: pass `--data baking/resources/lyrics_4_tests.csv` to the seed command.
+- Any CSV with the Kaggle lyrics columns (`song`, `year`, `artist`, `genre`, `lyrics`) works, for example the `catalog.csv` produced by the ML pipeline.
 
 ## Environment variables
 
 - `APP_CONFIG_FILE` (required): path to the config file, for example `config/development.py`.
 - `SECRET_KEY`: required with `config/production.py`; development and testing fall back to a dev only key.
-- `DATABASE_URL` (optional): overrides the default SQLite database (`baking/resources/flask_bakinglyrics_main.db`). `postgres://` URLs are accepted.
+- `BAKING_TABLE_PREFIX` (optional): DynamoDB table name prefix, `baking-lyrics` by default. Use your own, such as `baking-lyrics-dev`, for development against real AWS.
+- `AWS_REGION` or `AWS_DEFAULT_REGION` (optional): region of the tables and the S3 bucket, `us-east-1` by default. Lambda sets `AWS_REGION` itself.
+- `DYNAMODB_ENDPOINT_URL` (optional): DynamoDB endpoint for local development, such as a moto server (`http://localhost:5000`) or DynamoDB Local.
+- `ALLOWED_ORIGINS` (optional): comma separated browser origins allowed to call `/api/*` (CORS), `http://localhost:3000` by default.
 - `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` (optional): commit sha and ISO 8601 commit date reported by `GET /api/v1/general/version`; when both are unset they are read from git, and they are `null` if git is unavailable.
-- `RATELIMIT_STORAGE_URI` (optional): storage for rate limits, `memory://` by default; use a shared store such as `redis://` with several workers. Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`).
+- AWS credentials: the usual boto3 sources (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, SSO). With a moto server any non empty fake values work.
 
 These can also go in a `.env` file at the repo root (it is gitignored).
 
@@ -64,28 +68,60 @@ Windows PowerShell:
 
 ```powershell
 $env:APP_CONFIG_FILE = 'config/development.py'
-$env:SECRET_KEY = 'change-me'                     # optional
-$env:DATABASE_URL = 'sqlite:///baking-lyrics.db'  # optional
+$env:SECRET_KEY = 'change-me'                      # optional
+$env:BAKING_TABLE_PREFIX = 'baking-lyrics-dev'     # optional
+$env:DYNAMODB_ENDPOINT_URL = 'http://localhost:5000'  # optional, moto server
 ```
 
 macOS/Linux:
 
 ```bash
 export APP_CONFIG_FILE=config/development.py
-export SECRET_KEY=change-me                      # optional
-export DATABASE_URL=sqlite:///baking-lyrics.db   # optional
+export SECRET_KEY=change-me                       # optional
+export BAKING_TABLE_PREFIX=baking-lyrics-dev      # optional
+export DYNAMODB_ENDPOINT_URL=http://localhost:5000  # optional, moto server
 ```
+
+## Data (DynamoDB)
+
+The API stores everything in five on-demand DynamoDB tables named after `BAKING_TABLE_PREFIX`:
+
+- `<prefix>-catalog`: genres, artists and songs.
+- `<prefix>-generated`: generated songs and titles.
+- `<prefix>-shares`: one item per share of a generated song.
+- `<prefix>-counters`: id sequences and the totals behind `GET /api/v1/general/stats`.
+- `<prefix>-ratelimit`: per client share rate limit windows, removed by DynamoDB TTL on `ttl`.
+
+Keys, indexes and TTL are defined in one place, `baking/main/repository/schema.py`.
+
+Pick one of these for local development:
+
+- A local moto server, no AWS account needed: `uvx --from "moto[server]" moto_server -p 5000`, then set `DYNAMODB_ENDPOINT_URL=http://localhost:5000` and fake AWS credentials. Its data lives in memory and is lost when it stops.
+- Real AWS tables with your own prefix, such as `BAKING_TABLE_PREFIX=baking-lyrics-dev`, and your AWS credentials.
+
+Create the tables (idempotent: existing tables are kept, TTL is enabled where needed):
+
+- `uv run python -m baking.create_tables --wait`
+- Options: `--prefix`, `--region` and `--endpoint-url` override the environment variables.
+
+Seed the catalog:
+
+- `uv run python -m baking.refresh_database --data baking/resources/lyrics.csv`
+- It keeps the 900 artists with the most songs and at most 10 songs each, skipping empty, too short, instrumental and placeholder lyrics.
+- The 16 artists with the most songs in the dataset are flagged as cover artists, the ones `GET /api/v1/artists/random/<n>` picks from (`--cover-artists` changes the number).
+- Ids follow the dataset order, so running it again with the same data keeps every id; records no longer in the data are deleted, generated songs and shares are kept.
+- `--artificial 30` also creates 30 demo generated songs (model `Dummy`).
 
 ## Run
 
-- Apply migrations: `uv run flask --app baking.manage db upgrade`
-- Seed the database: `uv run python -m baking.refresh_database` (run it after the migrations; it wipes and reloads the data)
 - Start the API: `uv run flask --app baking.manage run --port 9090`
 - Open the Swagger UI at http://localhost:9090/api/v1/
+- Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`), counted in the ratelimit table so the limit holds across processes; the client is the left-most `X-Forwarded-For` address.
+- The catalog is read only through the API: genres, artists and songs change only by seeding.
 
 ## Test and lint
 
-- Tests: `uv run pytest` (no environment variables needed, tests build their own app and database)
+- Tests: `uv run pytest` (no environment variables or AWS account needed: tests run against DynamoDB mocked by moto)
 - Lint: `uv run ruff check .`
 
 # Models
