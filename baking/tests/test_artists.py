@@ -9,14 +9,6 @@ Seed data: one artist (id 1, "beyonce-knowles" / "Beyonce Knowles", genre "Pop",
 import pytest
 from flask_restx import marshal
 
-NEW_ARTIST = {
-    "name": "Nichi",
-    "clean_name": "Beyonce",
-    "pub_date": "1987-12-05T00:00:00",
-    "genre_id": 1,
-    "country": "US",
-}
-
 
 def _add_artists(app, count, cover, formation_date=None):
     """Adds `count` artists to genre 1 and returns their ids."""
@@ -32,26 +24,7 @@ def _add_artists(app, count, cover, formation_date=None):
         return [a.id for a in artists]
 
 
-# CRUD (ported from the original unittest suite)
-
-def test_artist_create(app, client):
-    from baking.main.database.models import Artist
-
-    response = client.post('/api/v1/artists/', json=NEW_ARTIST)
-
-    assert response.status_code == 201
-    with app.app_context():
-        created = Artist.query.filter(Artist.name == 'Nichi').one()
-        assert created.clean_name == 'Beyonce'
-        assert created.genre.id == 1
-        assert created.formation_date.isoformat() == '1987-12-05T00:00:00'
-
-
-def test_artist_create_unknown_genre_is_404(client):
-    response = client.post('/api/v1/artists/', json={**NEW_ARTIST, "genre_id": 999})
-
-    assert response.status_code == 404
-
+# Read
 
 def test_artist_get(app, client):
     from baking.main.database.models import Artist
@@ -73,48 +46,6 @@ def test_artist_get_unknown_is_404(client):
 
     assert response.status_code == 404
     assert response.json == {'message': 'Artist not found.'}
-
-
-def test_artist_update(app, client):
-    from baking.main import db
-    from baking.main.database.models import Artist
-
-    data = {"name": "beyonce-knowles",
-            "clean_name": "Beyonce",
-            "pub_date": "1987-12-05T00:00:00",
-            "genre_id": 1,
-            "country": "AR"}
-
-    response = client.put('/api/v1/artists/1', json=data)
-
-    assert response.status_code == 204
-    with app.app_context():
-        updated = db.session.get(Artist, 1)
-        assert updated.clean_name == 'Beyonce'
-        assert updated.country == 'AR'
-
-
-def test_artist_update_unknown_is_404(client):
-    response = client.put('/api/v1/artists/999', json=NEW_ARTIST)
-
-    assert response.status_code == 404
-
-
-def test_artist_delete(app, client):
-    from baking.main import db
-    from baking.main.database.models import Artist
-
-    with app.app_context():
-        id_testing = db.session.query(db.func.max(Artist.id)).scalar()
-
-    response = client.delete(f'/api/v1/artists/{id_testing}')
-
-    assert response.status_code == 204
-    assert client.get(f'/api/v1/artists/{id_testing}').status_code == 404
-
-
-def test_artist_delete_unknown_is_404(client):
-    assert client.delete('/api/v1/artists/999').status_code == 404
 
 
 def test_artist_get_all(client):

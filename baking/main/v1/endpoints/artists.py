@@ -11,7 +11,6 @@ from sqlalchemy.exc import NoResultFound
 # Own
 from baking.main import api
 from baking.main.database.models import Artist
-from baking.main.v1.models.business import create_artist, delete_artist, update_artist
 from baking.main.v1.parsers import pagination_arguments
 from baking.main.v1.serializers import artist, page_of_artists
 
@@ -38,19 +37,6 @@ class ArtistsCollection(Resource):
 
         return artists_page
 
-    @api.expect(artist)
-    @api.response(404, 'Artist not found.')
-    def post(self):
-        """
-        Creates a new artist.
-        """
-        try:
-            create_artist(request.json)
-        except AttributeError:
-            abort(400, 'Bad request')
-
-        return None, 201
-
 
 @ns.route('/<int:artist_id>')
 @api.response(404, 'Artist not found.')
@@ -65,24 +51,6 @@ class ArtistItem(Resource):
             return Artist.query.filter(Artist.id == artist_id).one()
         except NoResultFound:
             abort(404, 'Artist not found.')
-
-    @api.expect(artist)
-    @api.response(204, 'Artist successfully updated.')
-    def put(self, artist_id):
-        """
-        Updates a artist.
-        """
-        data = request.json
-        update_artist(artist_id, data)
-        return None, 204
-
-    @api.response(204, 'Artist successfully deleted.')
-    def delete(self, artist_id):
-        """
-        Deletes artist.
-        """
-        delete_artist(artist_id)
-        return None, 204
 
 
 @ns.route('/search/<partial_artist_name>')

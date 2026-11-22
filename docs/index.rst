@@ -52,11 +52,6 @@ Welcome to Baking-Lyrics's documentation!
 :mod:`models` Package
 ---------------------
 
-:mod:`business` Module
-----------------------
-.. automodule:: main.v1.models.business
-    :members:
-
 :mod:`machine_learning` Module
 ------------------------------
 .. automodule:: main.v1.models.machine_learning
