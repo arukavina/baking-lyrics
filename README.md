@@ -194,7 +194,7 @@ Training, evaluation and retraining are described in [ml/README.md](ml/README.md
 
 - [ci.yml](.github/workflows/ci.yml) runs lint and tests on every pull request.
 - [deploy.yml](.github/workflows/deploy.yml) runs on every push to `master` (and manually with "Run workflow"): it runs CI, builds the image for `linux/amd64`, pushes it to ECR tagged with the commit sha and `latest`, updates the Lambda function code, waits for the update and smoke tests the API.
-- The smoke test calls `GET /api/v1/general/ping` and checks that `GET /api/v1/general/version` reports the deployed commit.
+- The smoke test calls `GET /api/v1/general/ping`, checks that `GET /api/v1/general/version` reports the deployed commit, that `GET /api/v1/general/stats` answers 200 with a JSON object holding `artists` (so DynamoDB is reachable), and that a request with `Origin: https://baking-lyrics-web.vercel.app` gets that origin back in `Access-Control-Allow-Origin` (so `ALLOWED_ORIGINS` includes the frontend).
 - The deploy job runs in the GitHub environment `production` and assumes an AWS role through GitHub OIDC, so no AWS keys are stored in GitHub.
 
 The `production` environment needs these secrets:

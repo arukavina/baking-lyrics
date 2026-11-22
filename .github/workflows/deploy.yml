@@ -105,6 +105,28 @@ jobs:
             exit 1
           fi
 
+          # The stats read DynamoDB, so this also checks the tables and the function's permissions
+          status=$(curl --silent --show-error --max-time 30 -o stats.json -w '%{http_code}' "$base/stats")
+          cat stats.json
+          echo
+          if [ "$status" != "200" ]; then
+            echo "::error::stats answered HTTP $status, expected 200"
+            exit 1
+          fi
+          if ! jq -e 'type == "object" and has("artists")' stats.json > /dev/null; then
+            echo "::error::stats is not a JSON object with artists"
+            exit 1
+          fi
+
+          # CORS: the production frontend origin must be echoed back (ALLOWED_ORIGINS)
+          origin="https://baking-lyrics-web.vercel.app"
+          allowed=$(curl --fail --silent --show-error --max-time 30 -o /dev/null -D - -H "Origin: $origin" "$base/ping" \
+            | tr -d '\r' | awk -F': ' 'tolower($1) == "access-control-allow-origin" {print $2}')
+          if [ "$allowed" != "$origin" ]; then
+            echo "::error::Access-Control-Allow-Origin is '$allowed', expected $origin"
+            exit 1
+          fi
+
       - name: Summary
         if: always()
         env:
