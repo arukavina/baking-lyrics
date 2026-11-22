@@ -1,34 +1,63 @@
 """
-(Re)loads the songs dataset into the database.
+(Re)loads the songs dataset into the DynamoDB catalog (genres, artists and songs).
 
-Usage (drops and recreates every table of the configured database):
-    APP_CONFIG_FILE=config/development.py python -m baking.refresh_database
+Usage:
+    python -m baking.refresh_database --data baking/resources/lyrics.csv [--prefix baking-lyrics-dev] [--artificial 30]
 
-Programmatic usage (e.g. tests), inside an app context and after db.create_all():
-    refresh(app, load_song_data(app))
+The CSV follows the Kaggle "380,000 lyrics from MetroLyrics" schema (columns song, year, artist, genre and
+lyrics; an `index` column and extra columns are ignored), so the ML pipeline's catalog.csv works as well.
+Defaults: --data from DATA_FILE_PATH (else baking/resources/lyrics.csv), --prefix from BAKING_TABLE_PREFIX,
+--region from AWS_REGION / AWS_DEFAULT_REGION, --endpoint-url from DYNAMODB_ENDPOINT_URL.
+
+Rules (unchanged from the SQL version): the MAX_ARTISTS artists with the most songs in the dataset, at most
+`max_songs` songs each, skipping empty, too short, instrumental and "tekst" placeholder lyrics. Ids are
+assigned in dataset order (1, 2, 3...), so re-running with the same data keeps every id: records are
+overwritten and records that are no longer produced are deleted. Generated songs and shares are kept.
+
+Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset, ties broken by id.
+
+Programmatic usage (e.g. tests):
+    refresh(repository, read_song_data(path))
 """
 
 # Generic
+import argparse
 import datetime
 import logging
+import os
 
 # Libs
 import pandas as pd
-from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main import create_app, db, resolve_path
-from baking.main.database.models import ArtificialSong, ArtificialTitle, Artist, Genre, Song, utcnow
+from baking.main import resolve_path
+from baking.main.repository import DynamoRepository, schema
 
 logger = logging.getLogger('baking-api')
 
 MAX_ARTISTS = 900
+MAX_SONGS_PER_ARTIST = 10
+COVER_ARTISTS = 16
+COLUMNS = ['song', 'year', 'artist', 'genre', 'lyrics']
+
+FORMATION_DATE = datetime.datetime(1986, 6, 28)
+COUNTRY = 'US'
+
+
+def read_song_data(path):
+    """
+    Reads a songs CSV (relative paths are resolved against the repository root).
+    :param path: str or Path
+    :return: pandas.DataFrame
+    """
+    path = resolve_path(path)
+    logger.debug(f'Loading {path} file from disk...')
+    return pd.read_csv(path)
 
 
 def load_song_data(app):
     """
-    Reads the songs CSV named by app.config['DATA_FILE_PATH'].
-    Local paths are resolved against the repository root; with AWS=True the value is an S3 object key.
+    Reads the songs CSV named by app.config['DATA_FILE_PATH']. With AWS=True the value is an S3 object key.
     :param app: Flask app
     :return: pandas.DataFrame
     """
@@ -37,186 +66,183 @@ def load_song_data(app):
     if app.config.get('AWS'):
         import baking.main.util.aws_utils as aws_utils
 
-        logger.debug(f"Loading {resource} file from AWS...")
+        logger.debug(f'Loading {resource} file from AWS...')
         with app.app_context():
             return aws_utils.read_s3_csv_as_tmpfile(resource)
 
-    path = resolve_path(resource)
-    logger.debug(f"Loading {path} file from disk...")
-    return pd.read_csv(path)
+    return read_song_data(resource)
 
 
-def count(song_data):
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
-    pd.set_option('display.max_colwidth', None)
-
-    s = song_data.groupby('artist')['song'].count().sort_values(ascending=False)
-    print(s[:MAX_ARTISTS])
+def _clean_text(value):
+    return str(value).strip().replace('-', ' ').title()
 
 
-def refresh(app, song_data, max_songs=10):
+def _valid_lyrics(song, i):
+    """The stripped lyrics, or None when the song must be skipped."""
+    if pd.isna(song['lyrics']):
+        logger.debug('Song ({}):{} by {} is NA. Skipping'.format(i, song['song'], song['artist']))
+        return None
+
+    lyrics = str(song['lyrics']).strip()
+
+    if lyrics == '':
+        logger.debug('Song ({}):{} by {} is empty. Skipping'.format(i, song['song'], song['artist']))
+        return None
+    if lyrics.lower().find('tekst') > 0:
+        logger.debug('Song ({}):{} by {}, Text NA (Tekst niedostę). Skipping'.format(i, song['song'], song['artist']))
+        return None
+    if lyrics.lower() == 'instrumental':
+        logger.debug('Song ({}):{} by {} is instrumental. Skipping'.format(i, song['song'], song['artist']))
+        return None
+    if len(lyrics) <= 30:
+        logger.debug('Song ({}):{} by {} lyrics are too short. Skipping'.format(i, song['song'], song['artist']))
+        return None
+    return lyrics
+
+
+def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ARTISTS, cover_artists=COVER_ARTISTS):
     """
-    Loads up to `max_songs` songs per artist (top MAX_ARTISTS artists by number of songs) into the DB.
-    Must run inside an app context; tables must already exist.
-    :param app: Flask app (kept for symmetry with load_song_data and future config lookups)
-    :param song_data: DataFrame with columns index, song, year, artist, genre, lyrics
+    Applies the cleaning rules and assigns ids.
+    :param song_data: DataFrame with at least the columns song, year, artist, genre and lyrics
     :param max_songs: maximum number of songs loaded by artist
-    :return: number of songs added
+    :param max_artists: number of artists (the ones with most songs in the dataset) considered
+    :param cover_artists: number of artists flagged as cover (front page) artists
+    :return: (genres, artists, songs) lists of repository records
     """
-    logger.info("Loading songs data to internal DB")
+    missing = [column for column in COLUMNS if column not in song_data.columns]
+    if missing:
+        raise ValueError(f'Missing columns in the songs data: {missing}')
 
-    new_songs = 0
+    counts = song_data.groupby('artist')['song'].count().sort_values(ascending=False)
+    top = counts[:max_artists]
+    selected = song_data[song_data['artist'].isin(top.index)]
 
-    s = song_data.groupby('artist')['song'].count().sort_values(ascending=False)
+    genres, artists, songs = {}, {}, []
+    dataset_count = {}  # artist id -> songs of the artist in the dataset
+    loaded = {}  # raw artist -> loaded songs
 
-    merged = pd.merge(left=song_data, right=s[:MAX_ARTISTS], left_on='artist', right_on='artist')
-    merged.columns = ['index', 'song', 'year', 'artist', 'genre', 'lyrics', 'count']
+    for i, song in enumerate(selected[COLUMNS].to_dict('records')):
 
-    total_rows = len(merged)
-
-    prev_artist = ''
-    song_counter = 0
-
-    for i, song in enumerate(merged.to_dict('records')):
-
-        if i % 10000 == 0:
-            logger.info(f"p:{i}|l:{new_songs} [{(new_songs+1)/(i+1) * 100:.1f}%] / {total_rows}")
-
-        if prev_artist != song['artist']:
-            song_counter = 0
-
-        if song_counter >= max_songs:
+        if loaded.get(song['artist'], 0) >= max_songs:
             logger.debug('Limit of songs by artist reached')
             continue
 
-        if pd.isna(song['lyrics']):
-            logger.debug('Song ({}):{} by {} is NA. Skipping'.format(i, song['song'], song['artist']))
-            continue
-
-        lyrics = str(song['lyrics']).strip()
-
-        if lyrics == '':
-            logger.debug('Song ({}):{} by {} is empty. Skipping'.format(i, song['song'], song['artist']))
-            continue
-
-        if lyrics.lower().find('tekst') > 0:
-            logger.debug(
-                'Song ({}):{} by {}, Text NA (Tekst niedostę). Skipping'.format(i, song['song'], song['artist']))
-            continue
-
-        if lyrics.lower() == 'instrumental':
-            logger.debug('Song ({}):{} by {} is instrumental. Skipping'.format(i, song['song'], song['artist']))
-            continue
-
-        if len(lyrics) <= 30:
-            logger.debug(
-                'Song ({}):{} by {} lyrics are too short -> {}. Skipping'.format(i, song['song'], song['artist'],
-                                                                                 song['lyrics']))
+        lyrics = _valid_lyrics(song, i)
+        if lyrics is None:
             continue
 
         try:
-            artist_str = str(song['artist']).strip().replace('-', ' ').title()
-            song_str = str(song['song']).strip().replace('-', ' ').title()
-            genre_str = str(song['genre']).strip().replace('-', ' ').title()
+            artist_str = _clean_text(song['artist'])
+            song_str = _clean_text(song['song'])
+            genre_str = _clean_text(song['genre'])
             year = int(song['year'])
+            publication_date = datetime.datetime(year, 1, 1)
         except (TypeError, ValueError):
-            logger.debug(
-                'Failed while parsing record ({}): {} | {} | {}'.format(i, song['artist'], song['song'], song['genre']))
+            logger.debug('Failed while parsing record ({}): {} | {} | {}'.format(i, song['artist'], song['song'],
+                                                                                song['genre']))
             continue
 
-        if len(artist_str) > 160:
-            logger.debug(f'Artist name too long: {artist_str}. Skipping')
-            continue
-        if len(song_str) > 150:
-            logger.debug(f'Song title too long: {song_str}. Skipping')
-            continue
-        if len(genre_str) > 90:
-            logger.debug(f'Genre name too long: {genre_str}. Skipping')
+        if len(artist_str) > 160 or len(song_str) > 150 or len(genre_str) > 90:
+            logger.debug(f'Name too long: {artist_str} | {song_str} | {genre_str}. Skipping')
             continue
 
-        try:
-            artist = Artist.query.filter(Artist.clean_name == artist_str).one()
-        except NoResultFound:
-            genre = Genre.query.filter(Genre.name == genre_str).first()
+        artist = artists.get(artist_str)
+        if artist is None:
+            genre = genres.get(genre_str)
             if genre is None:
-                genre = Genre(name=genre_str)
+                genre = genres[genre_str] = {'id': len(genres) + 1, 'name': genre_str}
+            artist = artists[artist_str] = {
+                'id': len(artists) + 1,
+                'name': str(song['artist']),
+                'clean_name': artist_str,
+                'cover': False,
+                'country': COUNTRY,
+                'formation_date': FORMATION_DATE,
+                'genre_id': genre['id'],
+            }
+            dataset_count[artist['id']] = int(counts[song['artist']])
 
-            artist = Artist(name=song['artist'],
-                            clean_name=artist_str,
-                            cover=False,
-                            country="US",
-                            formation_date=datetime.date(1986, 6, 28),
-                            genre=genre)
+        songs.append({
+            'id': len(songs) + 1,
+            'title': song_str,
+            'lyrics': song['lyrics'],
+            'publication_date': publication_date,
+            'artist_id': artist['id'],
+        })
+        loaded[song['artist']] = loaded.get(song['artist'], 0) + 1
 
-        db.session.add(Song(title=song_str,
-                            lyrics=song['lyrics'],
-                            publication_date=datetime.date(year, 1, 1),
-                            artist=artist
-                            )
-                       )
+    ranked = sorted(artists.values(), key=lambda a: (-dataset_count[a['id']], a['id']))
+    for artist in ranked[:cover_artists]:
+        artist['cover'] = True
 
-        new_songs += 1
-        song_counter += 1
-        prev_artist = song['artist']
-
-        db.session.commit()
-
-    logger.info(f"p:{total_rows}|l:{new_songs} [{(new_songs + 1) / (total_rows + 1) * 100:.1f}%] / {total_rows}")
-
-    db.session.commit()
-    return new_songs
+    return list(genres.values()), list(artists.values()), songs
 
 
-def create_artificial(song_data, number_artificial_songs=30):
+def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, cover_artists=COVER_ARTISTS):
     """
-    Creates pre-existing artificial songs for deployment and tests. Must run inside an app context.
+    Writes the catalog built from `song_data` and deletes the catalog records it no longer contains.
+    :param repository: Repository
+    :param song_data: DataFrame (see build_catalog)
+    :param max_songs: maximum number of songs loaded by artist
+    :param cover_artists: number of cover artists
+    :return: number of songs loaded
     """
-    logger.info(f"Creating {number_artificial_songs} pre-existing artificial songs for deployment and tests")
+    logger.info('Loading songs data to DynamoDB')
+    genres, artists, songs = build_catalog(song_data, max_songs=max_songs, cover_artists=cover_artists)
+    repository.save_catalog(genres=genres, artists=artists, songs=songs)
+    deleted = repository.prune_catalog(genre_ids=[g['id'] for g in genres], artist_ids=[a['id'] for a in artists],
+                                       song_ids=[s['id'] for s in songs])
+    logger.info(f'{len(genres)} genres, {len(artists)} artists and {len(songs)} songs loaded, '
+                f'{deleted} stale records deleted')
+    return len(songs)
+
+
+def create_artificial(repository, song_data, number_artificial_songs=30):
+    """
+    Creates pre-existing generated songs (model "Dummy") from the first rows of `song_data`, for demos and tests.
+    Their base artist is the catalog artist with the same raw name, if any.
+    """
+    logger.info(f'Creating {number_artificial_songs} pre-existing artificial songs for deployment and tests')
+    artist_ids = {artist['name']: artist['id'] for artist in repository.list_artists()}
 
     for i, song in enumerate(song_data.to_dict('records')):
-
         if i >= number_artificial_songs:
             break
-
-        try:
-            artist = Artist.query.filter(Artist.name == str(song['artist'])).one()
-        except NoResultFound:
-            artist = Artist(name=song['artist'],
-                            clean_name=str(song['artist']).strip().replace('-', ' ').title(),
-                            country="US",
-                            formation_date=datetime.date(1987, 12, 5),
-                            genre=Genre(name=song['genre']))
-
-        artificial_title = ArtificialTitle(
-            title=song['song'],
-            creation_date=utcnow()
-        )
-
-        artificial_song = ArtificialSong(
-            artificial_title=artificial_title,
-            lyrics=song['lyrics'],
-            model="Dummy",
-            base_artist=artist,
-            creation_date=utcnow()
-        )
-        db.session.add(artificial_song)
-        db.session.flush()
-
-        logger.info(f"{i + 1}/{number_artificial_songs}")
-
-    db.session.commit()
+        repository.create_generated_song(title=song['song'], lyrics=song['lyrics'], model='Dummy',
+                                         base_artist_id=artist_ids.get(str(song['artist'])))
+        logger.info(f'{i + 1}/{number_artificial_songs}')
 
 
-def main():
-    app = create_app()  # Uses the APP_CONFIG_FILE environment variable, e.g. config/development.py
-    song_data = load_song_data(app)
+def parse_args(argv=None):
+    parser = argparse.ArgumentParser(prog='python -m baking.refresh_database',
+                                     description='Loads the songs dataset into the DynamoDB catalog.')
+    parser.add_argument('--data', default=os.environ.get('DATA_FILE_PATH') or 'baking/resources/lyrics.csv',
+                        help='songs CSV (Kaggle lyrics schema), default: DATA_FILE_PATH or %(default)s')
+    parser.add_argument('--prefix', default=os.environ.get('BAKING_TABLE_PREFIX') or schema.DEFAULT_PREFIX,
+                        help='table name prefix (default: BAKING_TABLE_PREFIX or %(default)s)')
+    parser.add_argument('--region', default=os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION')
+                        or 'us-east-1', help='AWS region (default: %(default)s)')
+    parser.add_argument('--endpoint-url', default=os.environ.get('DYNAMODB_ENDPOINT_URL') or None,
+                        help='DynamoDB endpoint, e.g. a moto server or DynamoDB Local')
+    parser.add_argument('--max-songs', type=int, default=MAX_SONGS_PER_ARTIST, help='songs per artist')
+    parser.add_argument('--cover-artists', type=int, default=COVER_ARTISTS, help='number of cover artists')
+    parser.add_argument('--artificial', type=int, default=0,
+                        help='also create this many "Dummy" generated songs (demo data)')
+    return parser.parse_args(argv)
 
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-        refresh(app, song_data)
+
+def main(argv=None):
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+    logger.setLevel(logging.INFO)
+    args = parse_args(argv)
+    repository = DynamoRepository(prefix=args.prefix, region=args.region, endpoint_url=args.endpoint_url,
+                                  cache_seconds=0)
+    song_data = read_song_data(args.data)
+    loaded = refresh(repository, song_data, max_songs=args.max_songs, cover_artists=args.cover_artists)
+    if args.artificial:
+        create_artificial(repository, song_data, args.artificial)
+    print(f'{loaded} songs loaded into {args.prefix}-catalog ({args.region})')
+    return loaded
 
 
 if __name__ == '__main__':

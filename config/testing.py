@@ -1,5 +1,3 @@
-import os
-
 DEBUG = False
 '''
 Whether debug mode is enabled.
@@ -45,18 +43,15 @@ LOG_LEVEL = 2
 # AWS
 AWS = False
 AWS_BUCKET = 'bakinglyrics'
-AWS_REGION = 'us-east-2'
 
 # Models
 MODELS_PATH = r'baking/resources/models'
 MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
 
-# SQLAlchemy settings
-# In-memory SQLite by default so tests never touch the real database. Override with the
-# TEST_DATABASE_URL environment variable or create_app(..., test_config={'SQLALCHEMY_DATABASE_URI': ...}).
-SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL', 'sqlite://')
-SQLALCHEMY_ECHO = False
-SQLALCHEMY_TRACK_MODIFICATIONS = False
+# DynamoDB: tests run against moto with their own prefix, never against real tables
+BAKING_TABLE_PREFIX = 'baking-lyrics-test'
+
+# Seeding
 DATA_FILE_PATH = r'baking/resources/lyrics_4_tests.csv'
 
 # Off by default in tests; tests that check limits enable it explicitly

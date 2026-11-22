@@ -1,14 +1,12 @@
-
 # Generic
 import logging
 
 # Libs
 from flask_restx import Resource, abort
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
-from baking.main.database.models import Genre
+from baking.main.repository import get_repository
 from baking.main.v1.serializers import genre, genres_with_artists
 
 logger = logging.getLogger('baking-api')
@@ -24,8 +22,11 @@ class GenreCollection(Resource):
         """
         Returns list of genres
         """
-        genres = Genre.query.all()
-        return genres
+        repository = get_repository()
+        artists_by_genre = {}
+        for found in repository.list_artists():
+            artists_by_genre.setdefault(found['genre_id'], []).append(found)
+        return [{**found, 'artists': artists_by_genre.get(found['id'], [])} for found in repository.list_genres()]
 
 
 @ns.route('/<int:genre_id>')
@@ -37,7 +38,7 @@ class GenreItem(Resource):
         """
         Returns a genre with a list of band.
         """
-        try:
-            return Genre.query.filter(Genre.id == genre_id).one()
-        except NoResultFound:
+        found = get_repository().get_genre(genre_id)
+        if found is None:
             abort(404, 'Genre not found.')
+        return found

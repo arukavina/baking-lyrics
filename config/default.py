@@ -5,16 +5,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _database_url():
-    url = os.environ.get('DATABASE_URL')
-    if url:
-        # Heroku style URLs are not accepted by SQLAlchemy >= 1.4
-        if url.startswith('postgres://'):
-            url = 'postgresql://' + url[len('postgres://'):]
-        return url
-    return 'sqlite:///' + (REPO_ROOT / 'baking' / 'resources' / 'flask_bakinglyrics_main.db').as_posix()
-
-
 def _allowed_origins():
     raw = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000')
     return [origin.strip() for origin in raw.split(',') if origin.strip()]
@@ -35,9 +25,15 @@ RESTX_VALIDATE = True
 RESTX_MASK_SWAGGER = False
 RESTX_ERROR_404_HELP = False
 
-# SQLAlchemy settings
-SQLALCHEMY_DATABASE_URI = _database_url()
-SQLALCHEMY_TRACK_MODIFICATIONS = False
+# AWS region of the DynamoDB tables and the S3 bucket (Lambda sets AWS_REGION)
+AWS_REGION = os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
+
+# DynamoDB: tables are named {BAKING_TABLE_PREFIX}-catalog, -generated, -shares, -counters and -ratelimit
+BAKING_TABLE_PREFIX = os.environ.get('BAKING_TABLE_PREFIX') or 'baking-lyrics'
+# Optional endpoint for local development (moto server or DynamoDB Local)
+DYNAMODB_ENDPOINT_URL = os.environ.get('DYNAMODB_ENDPOINT_URL') or None
+# Seconds the artist list is kept in memory by each process
+CATALOG_CACHE_SECONDS = 60
 
 # Rate limiting (Flask-Limiter). In memory per process by default; set RATELIMIT_STORAGE_URI
 # (for example redis://...) when running several workers.

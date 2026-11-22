@@ -1,17 +1,16 @@
 # Generic
 import logging
+import random
 from datetime import datetime, timedelta
 
 # Libs
 from flask import request
 from flask_restx import Resource, abort
-from sqlalchemy import func
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
-from baking.main.database.models import Artist
-from baking.main.v1.parsers import pagination_arguments
+from baking.main.repository import get_repository
+from baking.main.v1.parsers import paginate, pagination_arguments
 from baking.main.v1.serializers import artist, page_of_artists
 
 logger = logging.getLogger('baking-api')
@@ -29,13 +28,7 @@ class ArtistsCollection(Resource):
         Returns list of artist artists.
         """
         args = pagination_arguments.parse_args(request)
-        page = args.get('page', 1)
-        per_page = args.get('per_page', 10)
-
-        artists_query = Artist.query
-        artists_page = artists_query.paginate(page=page, per_page=per_page, error_out=False)
-
-        return artists_page
+        return paginate(get_repository().list_artists(), args.get('page', 1), args.get('per_page', 10))
 
 
 @ns.route('/<int:artist_id>')
@@ -47,10 +40,10 @@ class ArtistItem(Resource):
         """
         Returns a artist artist.
         """
-        try:
-            return Artist.query.filter(Artist.id == artist_id).one()
-        except NoResultFound:
+        found = get_repository().get_artist(artist_id)
+        if found is None:
             abort(404, 'Artist not found.')
+        return found
 
 
 @ns.route('/search/<partial_artist_name>')
@@ -67,15 +60,11 @@ class GetArtistByName(Resource):
         if len(partial_artist_name) < 3:
             abort(400, 'A minimum of 3 characters are needed.')
 
-        partial_artist_name = partial_artist_name.lower()
-
-        artists = Artist.query.filter(Artist.clean_name.ilike('%' + partial_artist_name + '%'))
-        artists = artists.order_by(Artist.clean_name).all()
+        artists = get_repository().search_artists(partial_artist_name)
 
         if len(artists) == 0:
             abort(404, 'Artist not found')
-        else:
-            return artists
+        return artists
 
 
 @ns.route('/random/<int:number_of_artists>')
@@ -95,20 +84,12 @@ class GetNRandomFamousArtists(Resource):
         if number_of_artists > 20:
             abort(400, 'A maximum of 20 artists are to be retrieved.')
 
-        famous_artists = Artist.query.filter(Artist.cover)  # Cover is 1 if artists should be on front page (cover)
+        famous_artists = get_repository().cover_artists()  # cover artists are the front page ones
 
-        if len(famous_artists.all()) == 0:
+        if len(famous_artists) == 0:
             abort(404, 'No famous artists found')
 
-        if len(famous_artists.all()) < number_of_artists:
-            number_of_artists = len(famous_artists.all())
-
-        artists = famous_artists.order_by(func.random()).all()[:number_of_artists]
-
-        if len(artists) == 0:
-            abort(404, 'No artists found')
-
-        return artists
+        return random.sample(famous_artists, min(number_of_artists, len(famous_artists)))
 
 
 @ns.route('/archive/<int:year>/')
@@ -123,8 +104,6 @@ class ArtistsArchiveCollection(Resource):
         Returns list of artist artists from a specified time period.
         """
         args = pagination_arguments.parse_args(request)
-        page = args.get('page', 1)
-        per_page = args.get('per_page', 10)
 
         # Half-open interval [start_date, end_date)
         try:
@@ -140,8 +119,7 @@ class ArtistsArchiveCollection(Resource):
         except ValueError:
             abort(400, 'Invalid date.')
 
-        artists_query = Artist.query.filter(Artist.formation_date >= start_date).filter(Artist.formation_date < end_date)
+        artists = [a for a in get_repository().list_artists()
+                   if a['formation_date'] is not None and start_date <= a['formation_date'] < end_date]
 
-        artists_page = artists_query.paginate(page=page, per_page=per_page, error_out=False)
-
-        return artists_page
+        return paginate(artists, args.get('page', 1), args.get('per_page', 10))

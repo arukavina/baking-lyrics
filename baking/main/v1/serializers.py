@@ -97,3 +97,11 @@ general_stats = api.model('General stats', {
     'top_artists': fields.List(fields.Nested(top_artist),
                                description='Up to 3 artists with the most generated songs, ties broken by name'),
 })
+
+
+def song_view(record):
+    """
+    A song record ready for the `song` model, whose `artist` field has always been a list holding the
+    song's artist.
+    """
+    return {**record, 'artist': [record['artist']] if record.get('artist') else []}

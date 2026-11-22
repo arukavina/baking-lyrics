@@ -20,44 +20,67 @@ def test_app_is_testing(make_app):
     assert app.extensions['ml_available'] is False
 
 
-def test_testing_config_defaults_to_in_memory_sqlite(tmp_path, config_env):
+def test_testing_config_uses_its_own_table_prefix(tmp_path, config_env):
     from baking.main import create_app
 
-    config_env(TEST_DATABASE_URL=None)
+    config_env(BAKING_TABLE_PREFIX='baking-lyrics')
     app = create_app('config/testing.py', test_config={'LOG_DIR': str(tmp_path)})
 
-    assert app.config['SQLALCHEMY_DATABASE_URI'] == 'sqlite://'
+    assert app.config['BAKING_TABLE_PREFIX'] == 'baking-lyrics-test'
 
 
 def test_app_is_development(tmp_path, config_env):
-    from baking.main import create_app, db
+    from baking.main import create_app
+    from baking.main.repository import EXTENSION_KEY, DynamoRepository
 
-    config_env(DATABASE_URL=None, SECRET_KEY=None)
-    # No database override: the development app must point at the default SQLite file.
+    config_env(SECRET_KEY=None, BAKING_TABLE_PREFIX=None, AWS_REGION=None, AWS_DEFAULT_REGION=None,
+               DYNAMODB_ENDPOINT_URL=None)
     app = create_app('config/development.py', test_config={'LOG_DIR': str(tmp_path), 'LOG_LEVEL': 4})
 
-    try:
-        assert app.config['DEBUG'] is True
-        assert app.config['TESTING'] is False
-        assert app.config['ENV'] == 'development'
-        # Development falls back to a dev-only key when SECRET_KEY is not set.
-        assert app.config['SECRET_KEY']
-        assert app.config['SECRET_KEY'] != 'my_precious'
-        uri = app.config['SQLALCHEMY_DATABASE_URI']
-        assert uri.startswith('sqlite:///')
-        assert uri.endswith('flask_bakinglyrics_main.db')
-        # Without TensorFlow / model files the app still boots; generation endpoints answer 503.
-        assert app.extensions['ml_available'] is False
-    finally:
-        with app.app_context():
-            db.engine.dispose()
+    assert app.config['DEBUG'] is True
+    assert app.config['TESTING'] is False
+    assert app.config['ENV'] == 'development'
+    # Development falls back to a dev-only key when SECRET_KEY is not set.
+    assert app.config['SECRET_KEY']
+    assert app.config['SECRET_KEY'] != 'my_precious'
+    # Default tables: baking-lyrics-* in us-east-1, on AWS (no endpoint override)
+    repository = app.extensions[EXTENSION_KEY]
+    assert isinstance(repository, DynamoRepository)
+    assert (repository.prefix, repository.region, repository.endpoint_url) == ('baking-lyrics', 'us-east-1', None)
+    # Without TensorFlow / model files the app still boots; generation endpoints answer 503.
+    assert app.extensions['ml_available'] is False
 
 
-def test_database_url_heroku_scheme_is_rewritten(config_env):
-    config_env(DATABASE_URL='postgres://user:pw@host:5432/db')
+def test_dynamodb_settings_come_from_the_environment(tmp_path, config_env):
+    from baking.main import create_app
+    from baking.main.repository import EXTENSION_KEY
+
+    config_env(BAKING_TABLE_PREFIX='baking-lyrics-dev', AWS_REGION='eu-west-1',
+               DYNAMODB_ENDPOINT_URL='http://localhost:5000')
+    app = create_app('config/development.py', test_config={'LOG_DIR': str(tmp_path), 'LOG_LEVEL': 4})
+
+    repository = app.extensions[EXTENSION_KEY]
+    assert (repository.prefix, repository.region, repository.endpoint_url) == (
+        'baking-lyrics-dev', 'eu-west-1', 'http://localhost:5000')
+
+
+@pytest.mark.parametrize('variables, expected', [
+    ({'AWS_REGION': 'eu-west-1', 'AWS_DEFAULT_REGION': 'us-west-2'}, 'eu-west-1'),
+    ({'AWS_REGION': None, 'AWS_DEFAULT_REGION': 'us-west-2'}, 'us-west-2'),
+    ({'AWS_REGION': None, 'AWS_DEFAULT_REGION': None}, 'us-east-1'),
+])
+def test_aws_region_comes_from_the_environment(config_env, variables, expected):
+    config_env(**variables)
     import config.default
 
-    assert config.default.SQLALCHEMY_DATABASE_URI == 'postgresql://user:pw@host:5432/db'
+    assert config.default.AWS_REGION == expected
+
+
+@pytest.mark.parametrize('config_file', ['config/development.py', 'config/production.py', 'config/testing.py'])
+def test_config_files_do_not_hard_code_the_region(config_file):
+    from baking.main import REPO_ROOT
+
+    assert 'AWS_REGION' not in (REPO_ROOT / config_file).read_text(encoding='utf-8')
 
 
 def test_app_is_production(make_app, config_env):

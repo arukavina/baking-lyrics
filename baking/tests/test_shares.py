@@ -1,5 +1,5 @@
 """
-POST /api/v1/artificial_songs/<id>/shares on the seeded database (6 artificial songs).
+POST /api/v1/artificial_songs/<id>/shares on the seeded tables (6 generated songs).
 """
 
 # Libs
@@ -8,18 +8,15 @@ import pytest
 SHARES = '/api/v1/artificial_songs/{}/shares'
 
 
-def test_share_is_created(app, client):
-    from baking.main.database.models import Share
-
+def test_share_is_created(app_repo, client):
     response = client.post(SHARES.format(1), json={'network': 'facebook'})
 
     assert response.status_code == 201
     assert response.json == {'artificial_song_id': 1, 'network': 'facebook', 'shares': 1}
-    with app.app_context():
-        share = Share.query.one()
-        assert share.artificial_song_id == 1
-        assert share.network == 'facebook'
-        assert share.created_at is not None
+    [share] = app_repo.list_shares(1)
+    assert share['artificial_song_id'] == 1
+    assert share['network'] == 'facebook'
+    assert share['created_at'] is not None
 
 
 def test_shares_are_counted_per_song(client):
@@ -33,15 +30,12 @@ def test_shares_are_counted_per_song(client):
 
 
 @pytest.mark.parametrize('network', ['Twitter', 'TWITTER', ' twitter '])
-def test_network_is_case_insensitive_and_stored_lowercase(app, client, network):
-    from baking.main.database.models import Share
-
+def test_network_is_case_insensitive_and_stored_lowercase(app_repo, client, network):
     response = client.post(SHARES.format(3), json={'network': network})
 
     assert response.status_code == 201
     assert response.json['network'] == 'twitter'
-    with app.app_context():
-        assert Share.query.one().network == 'twitter'
+    assert [share['network'] for share in app_repo.list_shares(3)] == ['twitter']
 
 
 @pytest.mark.parametrize('payload', [
@@ -52,47 +46,38 @@ def test_network_is_case_insensitive_and_stored_lowercase(app, client, network):
     {'network': 'myspace'},
     {'other': 'facebook'},
 ])
-def test_missing_or_unknown_network_is_400(app, client, payload):
-    from baking.main.database.models import Share
-
+def test_missing_or_unknown_network_is_400(app_repo, client, payload):
     response = client.post(SHARES.format(1), json=payload)
 
     assert response.status_code == 400
     assert 'message' in response.json
-    with app.app_context():
-        assert Share.query.count() == 0
+    assert app_repo.list_shares(1) == []
+    assert app_repo.get_stats()['shares'] == 0
 
 
-def test_unknown_song_is_404(app, client):
-    from baking.main.database.models import Share
-
+def test_unknown_song_is_404(app_repo, client):
     response = client.post(SHARES.format(999), json={'network': 'facebook'})
 
     assert response.status_code == 404
     assert response.json == {'message': 'Lyric does not exist.'}
-    with app.app_context():
-        assert Share.query.count() == 0
+    assert app_repo.list_shares(999) == []
+    assert app_repo.get_stats()['shares'] == 0
 
 
-def test_shares_relationship(app_ctx, client):
-    from baking.main import db
-    from baking.main.database.models import ArtificialSong
-
+def test_shares_are_listed_per_song(app_repo, client):
     client.post(SHARES.format(4), json={'network': 'facebook'})
 
-    assert db.session.get(ArtificialSong, 4).shares.count() == 1
+    assert len(app_repo.list_shares(4)) == 1
+    assert app_repo.list_shares(5) == []
 
 
-def test_shares_are_rate_limited_per_client(make_app):
-    from baking.main import db, limiter
-    from baking.refresh_database import create_artificial, load_song_data, refresh
+def test_shares_are_rate_limited_per_client(aws, make_app):
+    from baking.main import limiter
+    from baking.tests.conftest import seed
 
     app = make_app(RATELIMIT_ENABLED=True, SHARE_RATE_LIMIT='3 per minute')
+    seed(app)
     with app.app_context():
-        db.create_all()
-        song_data = load_song_data(app)
-        refresh(app, song_data)
-        create_artificial(song_data)
         limiter.reset()
     client = app.test_client()
 

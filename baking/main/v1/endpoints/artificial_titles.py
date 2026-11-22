@@ -4,11 +4,10 @@ import logging
 # Libs
 from flask import current_app
 from flask_restx import Resource, abort
-from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main import api, db
-from baking.main.database.models import ArtificialSong, ArtificialTitle, utcnow
+from baking.main import api
+from baking.main.repository import get_repository
 from baking.main.v1.models.models_manager import ModelsManager
 from baking.main.v1.serializers import artificial_title
 
@@ -24,8 +23,7 @@ class ArtificialTitleCollection(Resource):
         """
         Returns list of generated titles
         """
-        titles = ArtificialTitle.query.all()
-        return titles
+        return get_repository().list_titles()
 
 
 @ns.route('/generate/<lang>/song/<int:song_id>/')
@@ -42,28 +40,19 @@ class ArtificialTitleItem(Resource):
         if lang != 'en':
             abort(400, 'Artificial Titles can only be generated in english')
 
-        try:
-            lyrics_text = ArtificialSong.query.filter(ArtificialSong.id == song_id).one().lyrics
-
-            if not current_app.extensions.get('ml_available', False):
-                abort(503, 'ML models are not loaded')
-
-            model = ModelsManager().get_model('titles')
-            title_text = model.generate_sentence(input_text=lyrics_text)
-
-            at = ArtificialTitle(
-                title=title_text,
-                creation_date=utcnow()
-            )
-
-            db.session.add(at)
-
-            db.session.commit()
-
-            return at
-        except NoResultFound:
+        repository = get_repository()
+        generated = repository.get_generated_song(song_id)
+        if generated is None:
             abort(404, 'Artificial song does not exist.')
+
+        if not current_app.extensions.get('ml_available', False):
+            abort(503, 'ML models are not loaded')
+
+        try:
+            model = ModelsManager().get_model('titles')
+            title_text = model.generate_sentence(input_text=generated['lyrics'])
         except FileNotFoundError as e:
             logger.error(e)
             abort(500, 'Internal Server error, please check log.')
 
+        return repository.create_title(title_text)

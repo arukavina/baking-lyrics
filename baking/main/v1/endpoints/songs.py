@@ -1,15 +1,13 @@
-
 # Generic
 import logging
 
 # Libs
 from flask_restx import Resource, abort
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
-from baking.main.database.models import Song
-from baking.main.v1.serializers import song
+from baking.main.repository import get_repository
+from baking.main.v1.serializers import song, song_view
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('songs', description='Operations related to songs')
@@ -23,8 +21,7 @@ class SongCollection(Resource):
         """
         Returns list of songs
         """
-        songs = Song.query.all()
-        return songs
+        return [song_view(found) for found in get_repository().list_songs()]
 
 
 @ns.route('/<int:song_id>')
@@ -37,7 +34,7 @@ class SongItem(Resource):
         Returns a song with a list of bands.
         """
         logger.debug('Getting song %s', song_id)
-        try:
-            return Song.query.filter(Song.id == song_id).one()
-        except NoResultFound:
+        found = get_repository().get_song(song_id)
+        if found is None:
             abort(404, 'Song not found.')
+        return song_view(found)

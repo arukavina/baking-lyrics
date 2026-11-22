@@ -16,11 +16,11 @@ EXTENSION_KEY = 'repository'
 def repository_from_config(config):
     """
     Builds the DynamoDB repository from a Flask config.
-    :param config: mapping with BAKING_TABLE_PREFIX, DYNAMODB_REGION, DYNAMODB_ENDPOINT_URL, CATALOG_CACHE_SECONDS
+    :param config: mapping with BAKING_TABLE_PREFIX, AWS_REGION, DYNAMODB_ENDPOINT_URL, CATALOG_CACHE_SECONDS
     :return: DynamoRepository
     """
     return DynamoRepository(prefix=config['BAKING_TABLE_PREFIX'],
-                            region=config['DYNAMODB_REGION'],
+                            region=config['AWS_REGION'],
                             endpoint_url=config.get('DYNAMODB_ENDPOINT_URL') or None,
                             cache_seconds=config.get('CATALOG_CACHE_SECONDS', 60))
 

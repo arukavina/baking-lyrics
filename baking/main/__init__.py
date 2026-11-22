@@ -5,7 +5,6 @@ import datetime
 import importlib.util
 import logging
 import os
-import traceback
 from pathlib import Path
 
 # Libs
@@ -15,24 +14,16 @@ from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_migrate import Migrate
 from flask_restx import Api
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main.util import build_info, log_utils
 
-# Repository root (the folder holding `baking/`, `config/` and `migrations/`).
+# Repository root (the folder holding `baking/` and `config/`).
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Development/testing only fallback; production must provide SECRET_KEY via the environment.
 _DEV_SECRET_KEY = 'dev-insecure-secret-key'
-
-db = SQLAlchemy()
-
-migrate = Migrate(directory=str(REPO_ROOT / 'migrations'))
 
 flask_bcrypt = Bcrypt()
 
@@ -50,12 +41,6 @@ def default_error_handler(error):
     message = 'An unhandled exception occurred.'
     _logger.error('%s: %s', message, error, exc_info=error)
     return {'message': message}, 500
-
-
-@api.errorhandler(NoResultFound)
-def database_not_found_error_handler(error):
-    _logger.warning('NoResultFound: %s\n%s', error, traceback.format_exc())
-    return {'message': 'A database result was required but none was found.'}, 404
 
 
 def resolve_path(path):
@@ -167,12 +152,13 @@ def create_app(app_config_file=None, test_config=None):
                                                                        app.config['SERVER_NAME_LOG'],
                                                                        os.getenv('FLASK_RUN_PORT', '9090')))
 
-    db_url = make_url(app.config['SQLALCHEMY_DATABASE_URI']).render_as_string(hide_password=True)
-    logger.info(f'Using DB: {db_url}')
+    # Data: DynamoDB tables, reached lazily on first use
+    from baking.main.repository import EXTENSION_KEY, repository_from_config
 
-    # Igniting DB
-    db.init_app(app)
-    migrate.init_app(app, db)
+    app.extensions[EXTENSION_KEY] = repository_from_config(app.config)
+    logger.info('Using DynamoDB tables %s-* in %s%s', app.config['BAKING_TABLE_PREFIX'], app.config['AWS_REGION'],
+                f" at {app.config['DYNAMODB_ENDPOINT_URL']}" if app.config.get('DYNAMODB_ENDPOINT_URL') else '')
+
     limiter.init_app(app)
 
     # Bcrypt

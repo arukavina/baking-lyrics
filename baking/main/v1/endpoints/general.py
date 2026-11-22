@@ -1,18 +1,15 @@
 # Generic
 import logging
-import random
 
 from flask import current_app, render_template
 
 # Libs
-from flask_restx import Resource
-from sqlalchemy import func, select
-from sqlalchemy.exc import NoResultFound
+from flask_restx import Resource, abort
 
 # Own
-from baking.main import api, db
-from baking.main.database.models import ArtificialSong, Artist, Share, Song
-from baking.main.v1.serializers import build_version, general_stats, song
+from baking.main import api
+from baking.main.repository import get_repository
+from baking.main.v1.serializers import build_version, general_stats, song, song_view
 
 logger = logging.getLogger('baking-api')
 
@@ -88,40 +85,18 @@ class Stats(Resource):
 
 def get_stats():
     """
-    Totals in one query and the top artists in another (grouped, no per artist queries).
+    Totals from the counters table plus the top artists by generated songs (no scan of generated songs).
     :return: dict matching the general_stats model
     """
-    artists, songs_generated, shares = db.session.execute(select(
-        select(func.count(Artist.id)).scalar_subquery(),
-        select(func.count(ArtificialSong.id)).scalar_subquery(),
-        select(func.count(Share.id)).scalar_subquery(),
-    )).one()
-
-    name = func.coalesce(func.nullif(Artist.clean_name, ''), Artist.name)
-    generated = func.count(ArtificialSong.id)
-    top_artists = db.session.execute(
-        select(Artist.id, name.label('name'), generated.label('songs_generated'))
-        .join(ArtificialSong, ArtificialSong.base_artist_id == Artist.id)
-        .group_by(Artist.id, Artist.clean_name, Artist.name)
-        .order_by(generated.desc(), name, Artist.id)
-        .limit(TOP_ARTISTS_LIMIT)
-    ).all()
-
-    return {
-        'artists': artists,
-        'songs_generated': songs_generated,
-        'shares': shares,
-        'top_artists': [row._asdict() for row in top_artists],
-    }
+    return get_repository().get_stats(top=TOP_ARTISTS_LIMIT)
 
 
 def get_random_lyric():
     """
-    Obtain some random song from the DB
-    :return: Str, HTML Code
+    A random song of the catalog, 404 when the catalog is empty.
+    :return: dict matching the song model
     """
-    number_songs = db.session.query(Song.id).count()
-    logger.info(f"Getting one random song from {number_songs} pool.")
-    if number_songs == 0:
-        raise NoResultFound('No songs in the database')
-    return Song.query.order_by(Song.id).offset(random.randrange(number_songs)).limit(1).one()
+    found = get_repository().random_song()
+    if found is None:
+        abort(404, 'A database result was required but none was found.')
+    return song_view(found)

@@ -64,3 +64,10 @@ def test_index(app, client):
 ])
 def test_catalog_is_read_only(client, method, url):
     assert getattr(client, method)(url, json={'name': 'x'}).status_code == 405
+
+
+def test_random_on_empty_catalog_is_404(aws, make_app):
+    response = make_app().test_client().get('/api/v1/general/random')
+
+    assert response.status_code == 404
+    assert response.json == {'message': 'A database result was required but none was found.'}

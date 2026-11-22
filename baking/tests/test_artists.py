@@ -7,38 +7,27 @@ Seed data: one artist (id 1, "beyonce-knowles" / "Beyonce Knowles", genre "Pop",
 
 # Libs
 import pytest
-from flask_restx import marshal
+
+# Own
+from baking.tests.conftest import add_artists
+
+# The JSON served before the move to DynamoDB, byte for byte
+SEEDED_ARTIST = {'id': 1, 'name': 'beyonce-knowles', 'clean_name': 'Beyonce Knowles', 'cover': False,
+                 'country': 'US', 'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop'}
 
 
-def _add_artists(app, count, cover, formation_date=None):
+def _add_artists(app_repo, count, cover, formation_date=None):
     """Adds `count` artists to genre 1 and returns their ids."""
-    from baking.main import db
-    from baking.main.database.models import Artist, Genre
-
-    with app.app_context():
-        genre = db.session.get(Genre, 1)
-        artists = [Artist(f'artist-{i}', f'Artist {i}', 'US', genre, formation_date=formation_date, cover=cover)
-                   for i in range(count)]
-        db.session.add_all(artists)
-        db.session.commit()
-        return [a.id for a in artists]
+    return add_artists(app_repo, count, cover=cover, formation_date=formation_date)
 
 
 # Read
 
-def test_artist_get(app, client):
-    from baking.main.database.models import Artist
-    from baking.main.v1.serializers import artist
-
-    with app.app_context():
-        expected = marshal(Artist.query.filter(Artist.id == 1).one(), artist)
-
+def test_artist_get(client):
     response = client.get('/api/v1/artists/1')
 
     assert response.status_code == 200
-    assert response.json == expected
-    assert response.json['clean_name'] == 'Beyonce Knowles'
-    assert response.json['genre'] == 'Pop'
+    assert response.json == SEEDED_ARTIST
 
 
 def test_artist_get_unknown_is_404(client):
@@ -53,7 +42,7 @@ def test_artist_get_all(client):
 
     assert response.status_code == 200
     assert response.json['total'] == 1
-    assert [a['id'] for a in response.json['items']] == [1]
+    assert response.json == {'items': [SEEDED_ARTIST], 'page': 1, 'pages': 1, 'per_page': 10, 'total': 1}
 
 
 # Search
@@ -62,7 +51,7 @@ def test_artist_get_by_name(client):
     response = client.get('/api/v1/artists/search/beyonce')
 
     assert response.status_code == 200
-    assert [a['id'] for a in response.json] == [1]
+    assert response.json == [SEEDED_ARTIST]
 
 
 def test_artist_search_is_case_insensitive(client):
@@ -82,8 +71,8 @@ def test_artist_search_no_match_is_404(client):
 
 # Pagination
 
-def test_artists_paginate(app, client):
-    _add_artists(app, 4, cover=False)  # 5 artists in total
+def test_artists_paginate(app_repo, client):
+    _add_artists(app_repo, 4, cover=False)  # 5 artists in total
 
     first = client.get('/api/v1/artists/?page=1&per_page=2')
     last = client.get('/api/v1/artists/?page=3&per_page=2')
@@ -122,9 +111,9 @@ def test_artist_random_without_cover_artists_is_404(client):
     assert client.get('/api/v1/artists/random/6').status_code == 404
 
 
-def test_artist_random_returns_only_cover_artists(app, client):
-    cover_ids = _add_artists(app, 8, cover=True)
-    _add_artists(app, 3, cover=False)
+def test_artist_random_returns_only_cover_artists(app_repo, client):
+    cover_ids = _add_artists(app_repo, 8, cover=True)
+    _add_artists(app_repo, 3, cover=False)
 
     response = client.get('/api/v1/artists/random/6')
 
@@ -135,8 +124,8 @@ def test_artist_random_returns_only_cover_artists(app, client):
 
 
 @pytest.mark.parametrize('number', [6, 20])
-def test_artist_random_caps_to_available_cover_artists(app, client, number):
-    _add_artists(app, 3, cover=True)
+def test_artist_random_caps_to_available_cover_artists(app_repo, client, number):
+    _add_artists(app_repo, 3, cover=True)
 
     response = client.get(f'/api/v1/artists/random/{number}')
 
@@ -172,11 +161,11 @@ def test_artist_archive_filters_by_period(client, path, expected_ids):
     assert [a['id'] for a in response.json['items']] == expected_ids
 
 
-def test_artist_archive_december_upper_bound(app, client):
+def test_artist_archive_december_upper_bound(app_repo, client):
     import datetime
 
-    december_ids = _add_artists(app, 1, cover=False, formation_date=datetime.datetime(2000, 12, 31, 23, 0))
-    _add_artists(app, 1, cover=False, formation_date=datetime.datetime(2001, 1, 1))
+    december_ids = _add_artists(app_repo, 1, cover=False, formation_date=datetime.datetime(2000, 12, 31, 23, 0))
+    _add_artists(app_repo, 1, cover=False, formation_date=datetime.datetime(2001, 1, 1))
 
     response = client.get('/api/v1/artists/archive/2000/12/')
 
@@ -184,10 +173,10 @@ def test_artist_archive_december_upper_bound(app, client):
     assert [a['id'] for a in response.json['items']] == december_ids
 
 
-def test_artist_archive_paginates(app, client):
+def test_artist_archive_paginates(app_repo, client):
     import datetime
 
-    _add_artists(app, 3, cover=False, formation_date=datetime.datetime(1999, 5, 5))
+    _add_artists(app_repo, 3, cover=False, formation_date=datetime.datetime(1999, 5, 5))
 
     response = client.get('/api/v1/artists/archive/1999/?per_page=2&page=2')
 

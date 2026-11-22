@@ -1,9 +1,9 @@
 """
 Shared pytest fixtures.
 
-Every test gets its own Flask app backed by a fresh SQLite file under ``tmp_path``, seeded from
-``baking/resources/lyrics_4_tests.csv`` (6 songs, 1 artist, 1 genre, 6 artificial songs/titles).
-Nothing is shared between tests, so they are order independent.
+Every test gets its own mocked AWS (moto) with freshly created DynamoDB tables and its own Flask app,
+seeded from ``baking/resources/lyrics_4_tests.csv`` (6 songs, 1 artist, 1 genre, 6 artificial songs/titles).
+Nothing is shared between tests, so they are order independent, and no request reaches real AWS.
 """
 
 # Generic
@@ -17,6 +17,7 @@ from moto import mock_aws
 TESTING_CONFIG = 'config/testing.py'
 TABLE_PREFIX = 'baking-lyrics-test'
 REGION = 'us-east-1'
+TEST_DATA = 'baking/resources/lyrics_4_tests.csv'
 
 
 @pytest.fixture(autouse=True)
@@ -62,8 +63,8 @@ def repo(aws):
 @pytest.fixture
 def config_env(monkeypatch):
     """
-    config/default.py reads SECRET_KEY and DATABASE_URL from the environment at import time and is
-    cached in sys.modules, so monkeypatching the environment alone has no effect on create_app.
+    config/default.py reads SECRET_KEY, AWS_REGION, BAKING_TABLE_PREFIX... from the environment at import
+    time and is cached in sys.modules, so monkeypatching the environment alone has no effect on create_app.
 
     Returns ``set_env(**variables)``: sets (or, for None, removes) the variables and reloads
     config.default. On teardown the environment is restored first and config.default is reloaded
@@ -88,48 +89,55 @@ def config_env(monkeypatch):
 @pytest.fixture
 def make_app(tmp_path):
     """
-    Returns ``make_app(config_file='config/testing.py', **overrides)`` building an app whose SQLite
-    file and log directory live under tmp_path. ``overrides`` go into create_app's test_config.
-    Engines of every app built here are disposed on teardown.
+    Returns ``make_app(config_file='config/testing.py', **overrides)`` building an app on the test tables
+    (TABLE_PREFIX in REGION) whose log directory lives under tmp_path. ``overrides`` go into create_app's
+    test_config. Building an app makes no AWS call; use the `aws` fixture before sending requests.
     """
-    from baking.main import create_app, db
-
-    built = []
+    from baking.main import create_app
 
     def _make_app(config_file=TESTING_CONFIG, **overrides):
         test_config = {
-            'SQLALCHEMY_DATABASE_URI': f'sqlite:///{(tmp_path / "test.db").as_posix()}',
+            'BAKING_TABLE_PREFIX': TABLE_PREFIX,
+            'AWS_REGION': REGION,
+            'DYNAMODB_ENDPOINT_URL': None,
             'LOG_DIR': str(tmp_path / 'logs'),
             'LOG_LEVEL': 3,  # WARNING: keeps the per-request INFO lines out of the test output
         }
         test_config.update(overrides)
-        new_app = create_app(config_file, test_config=test_config)
-        built.append(new_app)
-        return new_app
+        return create_app(config_file, test_config=test_config)
 
-    yield _make_app
+    return _make_app
 
-    for built_app in built:
-        with built_app.app_context():
-            db.session.remove()
-            db.engine.dispose()  # release the SQLite file so tmp_path can be removed on Windows
+
+def seed(app, cover_artists=0):
+    """
+    Loads the test CSV into the app's tables plus 6 "Dummy" generated songs. The seeded artist is not a
+    cover artist unless `cover_artists` says so.
+    """
+    from baking.main.repository import EXTENSION_KEY
+    from baking.refresh_database import create_artificial, read_song_data, refresh
+
+    repository = app.extensions[EXTENSION_KEY]
+    song_data = read_song_data(TEST_DATA)
+    refresh(repository, song_data, cover_artists=cover_artists)
+    create_artificial(repository, song_data)
+    return repository
 
 
 @pytest.fixture
-def app(make_app):
-    """A testing app with a freshly created and seeded database."""
-    from baking.main import db
-    from baking.refresh_database import create_artificial, load_song_data, refresh
-
+def app(aws, make_app):
+    """A testing app on freshly created and seeded tables."""
     app = make_app()
-
-    with app.app_context():
-        db.create_all()
-        song_data = load_song_data(app)
-        refresh(app, song_data)
-        create_artificial(song_data)
-
+    seed(app)
     return app
+
+
+@pytest.fixture
+def app_repo(app):
+    """The repository of the `app` fixture."""
+    from baking.main.repository import EXTENSION_KEY
+
+    return app.extensions[EXTENSION_KEY]
 
 
 @pytest.fixture
@@ -137,8 +145,15 @@ def client(app):
     return app.test_client()
 
 
-@pytest.fixture
-def app_ctx(app):
-    """An application context for tests that query the database directly."""
-    with app.app_context():
-        yield app
+def add_artists(repository, count, cover=False, formation_date=None, genre_id=1, names=None):
+    """Adds `count` artists to the catalog and returns their ids."""
+    ids = []
+    artists = []
+    for i in range(count):
+        artist_id = repository.next_id('artist')
+        name, clean_name = names[i] if names else (f'artist-{artist_id}', f'Artist {artist_id}')
+        artists.append({'id': artist_id, 'name': name, 'clean_name': clean_name, 'country': 'US', 'cover': cover,
+                        'formation_date': formation_date, 'genre_id': genre_id})
+        ids.append(artist_id)
+    repository.save_catalog(artists=artists)
+    return ids

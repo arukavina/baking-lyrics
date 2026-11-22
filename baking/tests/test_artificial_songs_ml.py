@@ -23,13 +23,13 @@ MODEL_SUFFIXES = (
 
 
 @pytest.fixture
-def ml_app(make_app):
+def ml_app(aws, make_app):
     """
-    Development config (testing never loads the models) on an isolated, seeded SQLite file.
+    Development config (testing never loads the models) on mocked, seeded DynamoDB tables.
     """
     import config.development as dev
-    from baking.main import db, resolve_path
-    from baking.refresh_database import create_artificial, load_song_data, refresh
+    from baking.main import resolve_path
+    from baking.tests.conftest import seed
 
     model_dir = resolve_path(dev.MODELS_PATH)
     missing = [s for s in MODEL_SUFFIXES if not (model_dir / (dev.MODEL_NAME_STR + s)).is_file()]
@@ -40,12 +40,7 @@ def ml_app(make_app):
     if not app.extensions['ml_available']:
         pytest.skip('ML models could not be loaded')
 
-    with app.app_context():
-        db.create_all()
-        song_data = load_song_data(app)
-        refresh(app, song_data)
-        create_artificial(song_data)
-
+    seed(app)
     return app
 
 

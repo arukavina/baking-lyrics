@@ -9,11 +9,10 @@ import time
 import numpy as np
 from flask import current_app as app
 from flask_restx import Resource, abort
-from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main import api, db, limiter
-from baking.main.database.models import ArtificialSong, ArtificialTitle, Artist, Share, Song, utcnow
+from baking.main import api, limiter
+from baking.main.repository import get_repository
 from baking.main.v1.models import machine_learning as ml
 from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
 
@@ -29,6 +28,36 @@ def abort_if_ml_unavailable():
     """
     if not app.extensions.get('ml_available', False):
         abort(503, 'ML models are not loaded')
+
+
+def artist_and_sample_song(artist_id):
+    """
+    The artist and its first song. Answers 400 when the artist does not exist and 404 when it has no songs.
+    """
+    repository = get_repository()
+    artist = repository.get_artist(artist_id)
+    if artist is None:
+        abort(400, f'Artist ID = {artist_id} does not exist.')
+
+    song = repository.first_song_of_artist(artist_id)
+    if song is None:
+        abort(404, f'No songs data for Artist ID = {artist_id} does not exist.')
+    return artist, song
+
+
+def genre_name(artist):
+    return artist['genre']['name'] if artist.get('genre') else None
+
+
+def save_generated_song(sample_title, lyrics, artist):
+    """
+    Stores the generated song with its title (the sample song title marked as artificial) and bumps the
+    generated song counters of the stats.
+    """
+    return get_repository().create_generated_song(title=sample_title + '(Artificial)',
+                                                  lyrics=lyrics,
+                                                  model=app.config['MODEL_NAME_STR'],
+                                                  base_artist_id=artist['id'])
 
 
 def generate_song(input_texts, artist, genre, title, word_count=None):
@@ -87,8 +116,7 @@ class ArtificialSongCollection(Resource):
         """
         Returns list of generated songs
         """
-        songs = ArtificialSong.query.all()
-        return songs
+        return get_repository().list_generated_songs()
 
 
 @ns.route('/<int:artificial_song_id>')
@@ -100,11 +128,10 @@ class ArtificialSongItem(Resource):
         """
         Returns a existing generated song.
         """
-
-        try:
-            return ArtificialSong.query.filter(ArtificialSong.id == artificial_song_id).one()
-        except NoResultFound:
+        found = get_repository().get_generated_song(artificial_song_id)
+        if found is None:
             abort(404, 'Lyric does not exist.')
+        return found
 
 
 @ns.route('/<int:artificial_song_id>/shares')
@@ -125,14 +152,10 @@ class ArtificialSongShares(Resource):
         if network not in SHARE_NETWORKS:
             abort(400, 'Unknown network. Expected one of: {}.'.format(', '.join(SHARE_NETWORKS)))
 
-        song = db.session.get(ArtificialSong, artificial_song_id)
-        if song is None:
+        shares = get_repository().add_share(artificial_song_id, network)
+        if shares is None:
             abort(404, 'Lyric does not exist.')
 
-        db.session.add(Share(artificial_song=song, network=network))
-        db.session.commit()
-
-        shares = db.session.query(Share.id).filter(Share.artificial_song_id == artificial_song_id).count()
         return {'artificial_song_id': artificial_song_id, 'network': network, 'shares': shares}, 201
 
 
@@ -160,47 +183,17 @@ class ArtificialSongSeedGenerator(Resource):
             abort(411, 'Seed can not be empty')
 
         try:
-
-            artist = None
-            title = None
-
-            try:
-                artist = Artist.query.filter(Artist.id == artist_id).one()
-            except NoResultFound:
-                abort(400, f'Artist ID = {artist_id} does not exist.')
-
-            # Getting a sample song from the artist
-            song = Song.query.filter(Song.artist_id == artist_id).first()
-            if song is None:
-                abort(404, f'No songs data for Artist ID = {artist_id} does not exist.')
-            title = song.title
+            artist, song = artist_and_sample_song(artist_id)
 
             abort_if_ml_unavailable()
 
-            artificial_title = ArtificialTitle(
-                title=title + '(Artificial)',
-                creation_date=utcnow()
-            )
-
-            title = list(map(ml.text_pre_process, [title]))[0]
+            title = list(map(ml.text_pre_process, [song['title']]))[0]
 
             input_texts = list(map(ml.text_pre_process, seed.split('\n')))
 
-            lyrics = generate_song(input_texts, artist.name, artist.genre.name, title, word_count=number_words)
+            lyrics = generate_song(input_texts, artist['name'], genre_name(artist), title, word_count=number_words)
 
-            artificial_song = ArtificialSong(
-                artificial_title=artificial_title,
-                lyrics=lyrics,
-                model=app.config['MODEL_NAME_STR'],
-                base_artist=artist,
-                creation_date=utcnow()
-            )
-
-            db.session.add(artificial_song)
-            db.session.flush()
-            db.session.commit()
-
-            return artificial_song
+            return save_generated_song(song['title'], lyrics, artist)
         except ValueError as e:
             abort(500, f"Internal Server Error: {e}")
 
@@ -226,51 +219,22 @@ class ArtificialSongGenerator(Resource):
             abort(501, 'Artificial Songs can only be generated in english')
 
         try:
+            artist, song = artist_and_sample_song(artist_id)
 
-            artist = None
-            title = None
-            fragment = ''
-
-            try:
-                artist = Artist.query.filter(Artist.id == artist_id).one()
-            except NoResultFound:
-                abort(400, f'Artist ID = {artist_id} does not exist.')
-
-            # Getting a random fragment from a song of the artist
-            song = Song.query.filter(Song.artist_id == artist_id).first()
-            if song is None:
-                abort(404, f'No songs data for Artist ID = {artist_id} does not exist.')
-            title = song.title
-            lyrics = song.lyrics or ''
+            # A random fragment from a song of the artist
+            lyrics = song['lyrics'] or ''
             random_cut = random.randint(min(30, len(lyrics)), len(lyrics))
             fragment = lyrics[:random_cut]
 
             abort_if_ml_unavailable()
 
-            artificial_title = ArtificialTitle(
-                title=title + '(Artificial)',
-                creation_date=utcnow()
-            )
-
-            title = list(map(ml.text_pre_process, [title]))[0]
+            title = list(map(ml.text_pre_process, [song['title']]))[0]
 
             input_texts = list(map(ml.text_pre_process, fragment.split('\n')))
 
-            lyrics = generate_song(input_texts, artist.name, artist.genre.name, title, word_count=number_words)
+            lyrics = generate_song(input_texts, artist['name'], genre_name(artist), title, word_count=number_words)
 
-            artificial_song = ArtificialSong(
-                artificial_title=artificial_title,
-                lyrics=lyrics,
-                model=app.config['MODEL_NAME_STR'],
-                base_artist=artist,
-                creation_date=utcnow()
-            )
-
-            db.session.add(artificial_song)
-            db.session.flush()
-            db.session.commit()
-
-            return artificial_song
+            return save_generated_song(song['title'], lyrics, artist)
         except ValueError as e:
             abort(500, f"Internal Server Error: {e}")
 
