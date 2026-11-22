@@ -157,3 +157,42 @@ def add_artists(repository, count, cover=False, formation_date=None, genre_id=1,
         ids.append(artist_id)
     repository.save_catalog(artists=artists)
     return ids
+
+
+class FakeGenerator:
+    """
+    Stands in for ml.generate.LyricsGenerator (no onnxruntime needed): records the calls and returns fixed
+    lyrics and titles. Only the artists in `known` have a style; others use the generic one (artist None).
+    """
+
+    def __init__(self, lyrics='brand new lyrics', title='Brand New Title', known=('beyonce-knowles',)):
+        self.lyrics = lyrics
+        self.title = title
+        self.known = set(known)
+        self.calls = []
+
+    def generate(self, artist=None, seed_text='', number_words=150, *, seed=None, **kwargs):
+        from ml.generate import Generation
+
+        self.calls.append(('generate', artist, seed_text, number_words, seed))
+        lyrics = (seed_text + ' ' + self.lyrics).strip()
+        return Generation(lyrics=lyrics, title=self.title, artist=artist if artist in self.known else None,
+                          words=number_words, seed=seed)
+
+    def generate_title(self, lyrics, artist=None, *, seed=None, **kwargs):
+        self.calls.append(('generate_title', artist, lyrics))
+        return self.title
+
+
+def install_fake_model(app, generator=None, version='9.9.9'):
+    """Replaces the app's model service by one whose model is already loaded with `generator`."""
+    from pathlib import Path
+
+    from baking.main.v1.models.generator import EXTENSION_KEY, LoadedModel, ModelService, ModelSettings
+
+    generator = generator or FakeGenerator()
+    service = ModelService(ModelSettings(local_dir='fake-bundle'))
+    service._model = LoadedModel(generator=generator, version=version, label=f'lyrics-lstm/{version}',
+                                 path=Path('fake-bundle'), load_seconds=0.0)
+    app.extensions[EXTENSION_KEY] = service
+    return generator

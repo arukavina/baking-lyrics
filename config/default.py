@@ -44,9 +44,18 @@ MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
 LOG_DIR = r'logs/'  # Relative paths are resolved against the repository root
 LOG_LEVEL = 2
 
-# Title
-TITLE_LSTM_MODEL = r'TitleLSTMModel'
-
-# Title - LSTM
-TITLE_LSTM_MODEL_FILE_PATH = 'baking/resources/models/titler_v1'
-TITLE_LSTM_TOKENIZER_FILE_PATH = ""
+# Lyrics model bundle (see baking/main/v1/models/generator.py and ml/BUNDLE.md)
+# MODEL_DIR: local bundle directory (development, tests); when set, S3 is not used
+MODEL_DIR = os.environ.get('MODEL_DIR') or None
+# Otherwise s3://MODEL_BUCKET/MODEL_PREFIX/<MODEL_VERSION or the version in latest.json>/
+MODEL_BUCKET = os.environ.get('MODEL_BUCKET') or 'bakinglyrics'
+MODEL_PREFIX = os.environ.get('MODEL_PREFIX') or 'models/lyrics-lstm'
+MODEL_VERSION = os.environ.get('MODEL_VERSION') or None
+# Download cache (default /tmp/models, the only writable path on Lambda)
+MODEL_CACHE_DIR = os.environ.get('MODEL_CACHE_DIR') or None
+# true: start loading the model when the app is created instead of on the first generation request
+MODEL_PRELOAD = os.environ.get('MODEL_PRELOAD', 'false')
+# onnxruntime intra op threads (default: the CPU count, at most 4)
+MODEL_THREADS = os.environ.get('MODEL_THREADS') or None
+# Seconds before a failed load is retried
+MODEL_RETRY_SECONDS = 300

@@ -44,9 +44,10 @@ LOG_LEVEL = 2
 AWS = False
 AWS_BUCKET = 'bakinglyrics'
 
-# Models
-MODELS_PATH = r'baking/resources/models'
-MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
+# Models: disabled unless a test passes MODEL_DIR or MODEL_BUCKET in test_config
+MODEL_DIR = None
+MODEL_BUCKET = None
+MODEL_PRELOAD = False
 
 # DynamoDB: tests run against moto with their own prefix, never against real tables
 BAKING_TABLE_PREFIX = 'baking-lyrics-test'

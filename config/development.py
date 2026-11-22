@@ -47,8 +47,9 @@ AWS = False
 AWS_BUCKET = 'bakinglyrics'
 
 # Models
-MODELS_PATH = r'baking/resources/models'
-MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
+MODEL_DIR = os.environ.get('MODEL_DIR') or None
+# S3 only when asked for: a developer machine usually has no access to the bucket
+MODEL_BUCKET = os.environ.get('MODEL_BUCKET') or None
 
 # Seeding (python -m baking.refresh_database)
 DATA_FILE_PATH = os.environ.get('DATA_FILE_PATH', r'baking/resources/lyrics.csv')

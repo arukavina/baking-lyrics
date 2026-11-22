@@ -2,7 +2,6 @@
 
 # Generics
 import datetime
-import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -48,53 +47,6 @@ def resolve_path(path):
     if not path.is_absolute():
         path = REPO_ROOT / path
     return path
-
-
-def _load_ml_models(app, logger):
-    """
-    Loads the tokenizer and the Keras models. Returns True when the models are ready to be used.
-    Missing optional dependencies (TensorFlow/Keras) or missing model files only produce a warning.
-    """
-    if importlib.util.find_spec('keras') is None or importlib.util.find_spec('keras_self_attention') is None:
-        logger.warning('Keras / keras-self-attention are not installed (optional `ml` extra). '
-                       'Generation endpoints will answer 503.')
-        return False
-
-    from baking.main.v1.models import machine_learning as ml
-
-    logger.info('Instantiating AI models')
-
-    model_name_str = app.config['MODEL_NAME_STR']
-    aws = app.config['AWS']
-    # On AWS the paths are S3 object keys and must stay relative.
-    model_path = app.config['MODELS_PATH'] if aws else str(resolve_path(app.config['MODELS_PATH']))
-
-    logger.info('AWS: %s', aws)
-
-    try:
-        tokenizer = ml.Tokenizer(
-            model_name=model_name_str,
-            artist_genre_tokenizer_path=os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz'),
-            tokenizer_path=os.path.join(model_path, model_name_str + '.tokenizer.pickle'),
-            embedded_matrix_path=os.path.join(model_path, model_name_str + '.embmat.npz'),
-            from_aws=aws
-        )
-        tokenizer.load()
-
-        ml_model = ml.LyricsSkthModel(
-            decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
-            gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
-            model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
-            model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
-            tokenizer=tokenizer,
-            from_aws=aws
-        )
-        ml_model.load_model()
-    except Exception:  # any failure here must not prevent the API from booting
-        logger.warning('Could not load the ML models; generation endpoints will answer 503.', exc_info=True)
-        return False
-
-    return True
 
 
 def create_app(app_config_file=None, test_config=None):
@@ -172,9 +124,9 @@ def create_app(app_config_file=None, test_config=None):
 
     app = v1.init_app(app, api)
 
-    app.extensions['ml_available'] = False
-    if app.config['ENV'] != 'testing':
-        with app.app_context():
-            app.extensions['ml_available'] = _load_ml_models(app, logger)
+    # Lyrics model: loaded on the first generation request, or now in the background with MODEL_PRELOAD=true
+    from baking.main.v1.models import generator
+
+    generator.init_app(app)
 
     return app

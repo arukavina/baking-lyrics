@@ -44,10 +44,6 @@ LOG_LEVEL = 2
 AWS = True
 AWS_BUCKET = 'bakinglyrics'
 
-# Models
-MODELS_PATH = r'resources/models'
-MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
-
 # Seeding (python -m baking.refresh_database)
 DATA_FILE_PATH = r'resources/lyrics.csv'
 

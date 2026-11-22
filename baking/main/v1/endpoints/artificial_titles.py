@@ -8,7 +8,7 @@ from flask_restx import Resource, abort
 # Own
 from baking.main import api
 from baking.main.repository import get_repository
-from baking.main.v1.models.models_manager import ModelsManager
+from baking.main.v1.models import generator
 from baking.main.v1.serializers import artificial_title
 
 logger = logging.getLogger('baking-api')
@@ -45,14 +45,18 @@ class ArtificialTitleItem(Resource):
         if generated is None:
             abort(404, 'Artificial song does not exist.')
 
-        if not current_app.extensions.get('ml_available', False):
+        service = generator.get_service(current_app)
+        if not service.settings.enabled:
             abort(503, 'ML models are not loaded')
 
-        try:
-            model = ModelsManager().get_model('titles')
-            title_text = model.generate_sentence(input_text=generated['lyrics'])
-        except FileNotFoundError as e:
-            logger.error(e)
-            abort(500, 'Internal Server error, please check log.')
+        # The title is written in the style of the artist the song was generated for
+        artist = generated.get('base_artist')
 
-        return repository.create_title(title_text)
+        try:
+            title_text, _ = service.generate_title(generated['lyrics'] or '', artist['name'] if artist else None)
+        except generator.ModelUnavailable:
+            title_text = None  # already logged by the service; abort outside the handler to keep the log short
+        if title_text is None:
+            abort(503, 'ML models are not loaded')
+
+        return repository.create_title(title_text or 'Untitled')

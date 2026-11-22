@@ -5,6 +5,9 @@ Configuration tests: each config file must produce the expected flags when passe
 # Libs
 import pytest
 
+# Own
+from baking.main.v1.models.generator import get_service
+
 PROD_SECRET = 'a-real-production-secret'
 
 
@@ -17,7 +20,7 @@ def test_app_is_testing(make_app):
     assert app.config['ENV'] == 'testing'
     assert app.config['SECRET_KEY']
     assert app.config['SECRET_KEY'] != 'my_precious'
-    assert app.extensions['ml_available'] is False
+    assert get_service(app).status() == 'disabled'
 
 
 def test_testing_config_uses_its_own_table_prefix(tmp_path, config_env):
@@ -47,8 +50,8 @@ def test_app_is_development(tmp_path, config_env):
     repository = app.extensions[EXTENSION_KEY]
     assert isinstance(repository, DynamoRepository)
     assert (repository.prefix, repository.region, repository.endpoint_url) == ('baking-lyrics', 'us-east-1', None)
-    # Without TensorFlow / model files the app still boots; generation endpoints answer 503.
-    assert app.extensions['ml_available'] is False
+    # Development reads the bundle from MODEL_DIR, or from S3 only when MODEL_BUCKET is set
+    assert get_service(app).settings.enabled is False
 
 
 def test_dynamodb_settings_come_from_the_environment(tmp_path, config_env):
@@ -91,7 +94,10 @@ def test_app_is_production(make_app, config_env):
     assert app.config['TESTING'] is False
     assert app.config['ENV'] == 'production'
     assert app.config['SECRET_KEY'] == PROD_SECRET
-    assert app.extensions['ml_available'] is False
+    # Production reads the model from S3, lazily: building the app makes no AWS call
+    settings = get_service(app).settings
+    assert (settings.bucket, settings.prefix, settings.version) == ('bakinglyrics', 'models/lyrics-lstm', None)
+    assert get_service(app).status() == 'not loaded'
 
 
 def test_production_without_secret_key_raises(make_app, config_env):

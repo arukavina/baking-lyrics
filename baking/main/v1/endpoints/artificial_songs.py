@@ -1,12 +1,9 @@
 # Generic
 import inspect
 import logging
-import random
-import re
 import time
 
 # Libs
-import numpy as np
 from flask import current_app as app
 from flask import request
 from flask_restx import Resource, abort
@@ -14,7 +11,7 @@ from flask_restx import Resource, abort
 # Own
 from baking.main import api, ratelimit
 from baking.main.repository import get_repository, schema
-from baking.main.v1.models import machine_learning as ml
+from baking.main.v1.models import generator
 from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
 
 logger = logging.getLogger('baking-api')
@@ -22,13 +19,19 @@ logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_songs', description='Operations related to artificially generated songs')
 
 
-def abort_if_ml_unavailable():
+# Upper bound of the words generated per song (keeps a request well inside the Lambda timeout)
+MAX_WORDS = 500
+
+
+def model_service():
     """
-    Generation needs the Keras models loaded by create_app. Answers 503 when they are not available
-    (TensorFlow not installed, model files missing, or ENV == 'testing').
+    The lyrics model service. Answers 503 when generation is disabled (no MODEL_DIR / MODEL_BUCKET) or the
+    model could not be loaded.
     """
-    if not app.extensions.get('ml_available', False):
+    service = generator.get_service(app)
+    if not service.settings.enabled:
         abort(503, 'ML models are not loaded')
+    return service
 
 
 def abort_if_rate_limited(route, limits):
@@ -58,67 +61,29 @@ def artist_and_sample_song(artist_id):
     return artist, song
 
 
-def genre_name(artist):
-    return artist['genre']['name'] if artist.get('genre') else None
-
-
-def save_generated_song(sample_title, lyrics, artist):
+def generate_song(artist, seed_text, number_words):
     """
-    Stores the generated song with its title (the sample song title marked as artificial) and bumps the
-    generated song counters of the stats.
+    Generates lyrics and their title in the style of `artist` (catalog record; its `name` is the slug the model
+    knows, unknown artists fall back to the generic style) continuing `seed_text`. Answers 503 when the model
+    is not available. Returns (lyrics, title, model label).
     """
-    return get_repository().create_generated_song(title=sample_title + '(Artificial)',
-                                                  lyrics=lyrics,
-                                                  model=app.config['MODEL_NAME_STR'],
-                                                  base_artist_id=artist['id'])
+    service = model_service()
+    number_words = max(1, min(int(number_words), MAX_WORDS))
+    start_time = time.perf_counter()
+    try:
+        result, model = service.generate(artist=artist['name'], seed_text=seed_text, number_words=number_words)
+    except generator.ModelUnavailable:
+        result = None  # already logged by the service; abort outside the handler to keep the log short
+    if result is None:
+        abort(503, 'ML models are not loaded')
+    logger.info('Generated %d words for artist %s (style %s) with %s in %.2f s', result.words, artist['name'],
+                result.artist or 'generic', model.label, time.perf_counter() - start_time)
+    return result.lyrics, result.title or 'Untitled', model.label
 
 
-def generate_song(input_texts, artist, genre, title, word_count=None):
-    start_time = time.time()
-
-    logger.info('Generating Lyrics for (input_text: [{}...])::(artist: {})::(genre:{})::(title:{})::(word_count:{})'.format(
-        ' '.join(input_texts)[0:15], artist, genre, title, word_count
-    ))
-
-    ai = ml.LyricsSkthModel()
-
-    enc_vector_title = ml.encode_verse(title, tokenizer=ai.tokenizer.tokenizer,
-                                       model_stv_encoder=ai.model_stv_encoder,
-                                       max_verse_length=20)
-
-    enc_vector_song_mean = np.mean([ml.encode_verse(x,
-                                                    tokenizer=ai.tokenizer.tokenizer,
-                                                    model_stv_encoder=ai.model_stv_encoder,
-                                                    max_verse_length=20)
-                                    for x in input_texts], axis=0)
-
-    _artist_token = np.array(ai.tokenizer.artist_tokenizer[artist]).reshape((1, 1))
-    _genre_token = np.array(ai.tokenizer.genre_tokenizer[genre]).reshape((1, 1))
-
-    seq, rawl, score = ai.generate_sentence(enc_vector_title,
-                                            enc_vector_song_mean,
-                                            _artist_token,
-                                            _genre_token,
-                                            num_generated=1 * 2,
-                                            max_length=128,
-                                            temperature=0.7,
-                                            depth_search_replace=5,
-                                            width_search_replace=128,
-                                            batch_size=128,
-                                            random_seed=2806)
-
-    lyrics = ml.clean_place_holders(''.join(rawl))
-
-    logger.info(f"Execution time: [{time.time() - start_time:.2f}] seconds")
-
-    if word_count is not None:
-        re_list = [m.start() for m in re.finditer(r' ', lyrics)]
-        if len(re_list) >= word_count:
-            return lyrics[:re_list[word_count - 1]]
-        else:
-            return lyrics
-    else:
-        return lyrics
+def save_generated_song(title, lyrics, model, artist):
+    """Stores the generated song with its title and bumps the generated song counters of the stats."""
+    return get_repository().create_generated_song(title=title, lyrics=lyrics, model=model, base_artist_id=artist['id'])
 
 
 @ns.route('/')
@@ -197,17 +162,11 @@ class ArtificialSongSeedGenerator(Resource):
             abort(411, 'Seed can not be empty')
 
         try:
-            artist, song = artist_and_sample_song(artist_id)
+            artist, _ = artist_and_sample_song(artist_id)
 
-            abort_if_ml_unavailable()
+            lyrics, title, model = generate_song(artist, seed, number_words)
 
-            title = list(map(ml.text_pre_process, [song['title']]))[0]
-
-            input_texts = list(map(ml.text_pre_process, seed.split('\n')))
-
-            lyrics = generate_song(input_texts, artist['name'], genre_name(artist), title, word_count=number_words)
-
-            return save_generated_song(song['title'], lyrics, artist)
+            return save_generated_song(title, lyrics, model, artist)
         except ValueError as e:
             abort(500, f"Internal Server Error: {e}")
 
@@ -233,22 +192,11 @@ class ArtificialSongGenerator(Resource):
             abort(501, 'Artificial Songs can only be generated in english')
 
         try:
-            artist, song = artist_and_sample_song(artist_id)
+            # The artist must have songs (404 otherwise); the model writes in its style without a prompt
+            artist, _ = artist_and_sample_song(artist_id)
 
-            # A random fragment from a song of the artist
-            lyrics = song['lyrics'] or ''
-            random_cut = random.randint(min(30, len(lyrics)), len(lyrics))
-            fragment = lyrics[:random_cut]
+            lyrics, title, model = generate_song(artist, '', number_words)
 
-            abort_if_ml_unavailable()
-
-            title = list(map(ml.text_pre_process, [song['title']]))[0]
-
-            input_texts = list(map(ml.text_pre_process, fragment.split('\n')))
-
-            lyrics = generate_song(input_texts, artist['name'], genre_name(artist), title, word_count=number_words)
-
-            return save_generated_song(song['title'], lyrics, artist)
+            return save_generated_song(title, lyrics, model, artist)
         except ValueError as e:
             abort(500, f"Internal Server Error: {e}")
-
