@@ -33,6 +33,10 @@ from ml.tokenizer import Tokenizer
 
 BUNDLE_FORMAT_VERSION = 1
 
+# Only the last tokens of the seed text are fed to the model as the prompt (the whole seed is still echoed at the
+# start of the lyrics): enough context for the LSTM, and the work before the first generated word stays bounded.
+MAX_PROMPT_TOKENS = 64
+
 
 @dataclass(frozen=True)
 class SamplingConfig:
@@ -246,24 +250,28 @@ class LyricsGenerator:
         genre: str | None = None,
         with_title: bool = True,
         sampling: SamplingConfig | None = None,
+        max_prompt_tokens: int = MAX_PROMPT_TOKENS,
         **overrides,
     ) -> Generation:
         """Generate lyrics (and a title) in the style of `artist`, continuing `seed_text`.
 
-        `number_words` counts generated words (the seed text is not counted); generation stops at the first line
-        end after the budget, or `extra_words` later at the latest. `overrides` are SamplingConfig fields.
+        `number_words` counts generated words only, after the seed text however long it is; generation stops at
+        the first line end after the budget, or `extra_words` later at the latest. The lyrics start with the whole
+        seed text, but only its last `max_prompt_tokens` tokens are fed to the model. `overrides` are
+        SamplingConfig fields.
         """
         cfg = replace(sampling or self.sampling, **overrides)
         rng = np.random.default_rng(seed)
         t = self.tok
         slug, artist_id, genre_id = self.resolve_artist(artist, genre)
         prompt = t.encode(seed_text) if seed_text else []
-        logits, state = self._feed([t.bos_id, *prompt], artist_id, genre_id, self.stepper.initial_state())
+        fed = prompt[-max_prompt_tokens:] if max_prompt_tokens > 0 else []
+        logits, state = self._feed([t.bos_id, *fed], artist_id, genre_id, self.stepper.initial_state())
         out: list[int] = list(prompt)
         words = 0
         boundary = {t.line_id, t.verse_id}
         hard_cap = number_words + cfg.extra_words
-        max_tokens = 4 * hard_cap + 64
+        max_tokens = len(prompt) + 4 * hard_cap + 64  # the budget starts after the prompt
         while len(out) < max_tokens:
             forbidden = list(self._lyrics_forbidden)
             if not out or out[-1] in boundary:
@@ -350,4 +358,4 @@ if __name__ == "__main__":
     sys.exit(main())
 
 
-__all__ = ["Generation", "LyricsGenerator", "OnnxStepper", "SamplingConfig", "Stepper", "process_logits", "sample"]
+__all__ = ["MAX_PROMPT_TOKENS", "Generation", "LyricsGenerator", "OnnxStepper", "SamplingConfig", "Stepper", "process_logits", "sample"]

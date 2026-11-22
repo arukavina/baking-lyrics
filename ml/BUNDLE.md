@@ -107,12 +107,13 @@ gen = LyricsGenerator.from_bundle(bundle_dir: str | Path, threads: int | None = 
 
 gen.generate(
     artist: str | None = None,       # slug or display name, case-insensitive; unknown -> generic style
-    seed_text: str = "",             # prompt, included at the start of the lyrics
+    seed_text: str = "",             # prompt, included whole at the start of the lyrics
     number_words: int = 150,         # generated words (seed not counted); stops at the next line end
     *, seed: int | None = None,      # same seed + same inputs -> same output
     genre: str | None = None,        # optional genre override (a key of artists.json "genres")
     with_title: bool = True,
     sampling: SamplingConfig | None = None,
+    max_prompt_tokens: int = 64,     # only the last 64 tokens of the seed text are fed to the model
     **overrides,                     # any SamplingConfig field, e.g. temperature=0.8
 ) -> Generation  # .lyrics (str, newlines), .title, .artist (slug or None), .words, .token_ids, .title_ids, .seed
 
@@ -125,7 +126,7 @@ gen.artist_slugs -> list[str]
 
 `SamplingConfig` defaults: temperature 0.9, top_k 50, top_p 0.95, repetition_penalty 1.2 over the last 64 tokens, at most 2 identical words in a row, title temperature 0.7, at most 8 title words, title copy bonus 1.0 (words from the lyrics are favoured in the title), `<unk>` never sampled.
 `LyricsGenerator` is not thread safe (it reuses input buffers); use one instance per worker, which is the Lambda model.
-Cost: one ONNX run per token, including the prompt; a 150 word song is about 200 to 250 steps. Measured with the full size model (99 MB, 25 M parameters) on a laptop CPU: 0.2 s session load, 7.5 ms per step on one thread, about 1.4 s for 150 words; expect roughly 2x on a 1 vCPU Lambda, so 2 GB memory and a 30 s timeout leave ample room.
+Cost: one ONNX run per token, including the prompt (at most 64 tokens fed); a 150 word song is about 200 to 250 steps. Measured with the full size model (99 MB, 25 M parameters) on a laptop CPU: 0.2 s session load, 7.5 ms per step on one thread, about 1.4 s for 150 words; expect roughly 2x on a 1 vCPU Lambda, so 2 GB memory and a 30 s timeout leave ample room.
 
 ## Compatibility
 

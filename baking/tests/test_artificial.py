@@ -179,6 +179,29 @@ def test_generate_song_stores_song_and_title(app_repo, client, fake, url, seed_t
     assert app_repo.get_stats()['songs_generated'] == 7
 
 
+def test_generate_song_accepts_a_seed_of_the_maximum_length(client, fake):
+    seed = 'a' * 300
+
+    response = client.get(SEED_SONG.format(lang='en', seed=seed, words=20, artist=1))
+
+    assert response.status_code == 200
+    assert fake.calls[-1][2] == seed
+
+
+def test_generate_song_rejects_a_too_long_seed(app_repo, client, fake):
+    response = client.get(SEED_SONG.format(lang='en', seed='a' * 301, words=20, artist=1))
+
+    assert response.status_code == 411
+    assert response.json == {'message': 'Seed can not be longer than 300 characters'}
+    assert fake.calls == []
+    assert app_repo.get_stats()['songs_generated'] == 6
+
+
+def test_seed_length_counts_decoded_characters(client, fake):
+    # 300 spaces sent as %20 are 300 characters, not 900
+    assert client.get(SEED_SONG.format(lang='en', seed='%20' * 299 + 'a', words=20, artist=1)).status_code == 200
+
+
 @pytest.mark.parametrize('words, expected', [(0, 1), (10, 10), (100000, 500)])
 def test_generate_song_bounds_the_word_count(client, fake, words, expected):
     assert client.get(NO_SEED_SONG.format(lang='en', words=words, artist=1)).status_code == 200

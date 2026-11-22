@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from ml.generate import LyricsGenerator, SamplingConfig, process_logits, sample
+from ml.generate import MAX_PROMPT_TOKENS, LyricsGenerator, SamplingConfig, process_logits, sample
 from ml.tokenizer import Tokenizer
 
 WORDS = "love night baby fire dance heart rain sky road home".split()
@@ -48,6 +48,43 @@ def test_word_budget_and_seed_text(gen):
     assert 30 <= res.words <= 30 + gen.sampling.extra_words
     assert res.lyrics.lower().startswith("night fire")
     assert res.token_ids[-1] not in (gen.tok.line_id, gen.tok.verse_id)
+
+
+def test_word_budget_starts_after_a_long_seed(gen):
+    seed_text = " ".join(WORDS * 20)  # 200 words, longer than the whole token budget of 5 words
+    prompt = gen.tok.encode(seed_text)
+
+    res = gen.generate("bee-gees", seed_text, 5, seed=3)
+
+    assert 5 <= res.words <= 5 + gen.sampling.extra_words
+    assert res.token_ids[:len(prompt)] == prompt  # the whole seed is echoed
+    assert len(res.token_ids) > len(prompt)
+
+
+def test_only_the_last_prompt_tokens_are_fed():
+    tok = Tokenizer.build([" ".join(WORDS) + " , ."], min_freq=1)
+    stepper = RandomStepper(len(tok))
+    g = LyricsGenerator(stepper, tok, ARTISTS)
+    seed_text = " ".join(WORDS * 10)
+    prompt = tok.encode(seed_text)
+    assert len(prompt) > MAX_PROMPT_TOKENS == 64
+
+    res = g.generate(None, seed_text, 10, seed=0, with_title=False)
+
+    fed = [token for token, _, _ in stepper.calls[:MAX_PROMPT_TOKENS + 1]]
+    assert fed == [tok.bos_id, *prompt[-MAX_PROMPT_TOKENS:]]
+    assert len(stepper.calls) >= 1 + MAX_PROMPT_TOKENS + len(res.token_ids) - len(prompt)
+    assert res.token_ids[:len(prompt)] == prompt
+
+
+def test_short_seed_is_fed_whole():
+    tok = Tokenizer.build([" ".join(WORDS) + " , ."], min_freq=1)
+    stepper = RandomStepper(len(tok))
+    g = LyricsGenerator(stepper, tok, ARTISTS)
+
+    g.generate(None, "night fire", 10, seed=0, with_title=False)
+
+    assert [token for token, _, _ in stepper.calls[:3]] == [tok.bos_id, *tok.encode("night fire")]
 
 
 def test_never_emits_forbidden_tokens(gen):

@@ -29,6 +29,10 @@ ns = api.namespace('artificial_songs', description='Operations related to artifi
 # Upper bound of the words generated per song (keeps a request well inside the Lambda timeout)
 MAX_WORDS = 500
 
+# Upper bound of the seed text, in characters. The model only reads the last 64 tokens of it (see
+# ml.generate.MAX_PROMPT_TOKENS) but echoes all of it at the start of the lyrics.
+MAX_SEED_CHARS = 300
+
 
 def model_service():
     """
@@ -166,7 +170,7 @@ class ArtificialSongShares(Resource):
           endpoint='artificial_songs_artificial_song_item_2')
 @ns.response(400, 'Artist Id not found.')
 @ns.response(404, 'No Songs for Artist Id found.')
-@ns.response(411, 'Seed can not be empty.')
+@ns.response(411, f'Seed can not be empty or longer than {MAX_SEED_CHARS} characters.')
 @ns.response(429, TOO_MANY_GENERATIONS)
 @ns.response(500, 'Internal server error.')
 @ns.response(501, 'Artificial Songs can only be generated in english.')
@@ -185,6 +189,9 @@ class ArtificialSongSeedGenerator(Resource):
 
         if seed == '':
             abort(411, 'Seed can not be empty')
+
+        if len(seed) > MAX_SEED_CHARS:
+            abort(411, f'Seed can not be longer than {MAX_SEED_CHARS} characters')
 
         try:
             artist, _ = artist_and_sample_song(artist_id)
