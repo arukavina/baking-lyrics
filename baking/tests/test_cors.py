@@ -14,11 +14,35 @@ def cors_client(make_app):
     return make_app(ALLOWED_ORIGINS=[ORIGIN, 'http://localhost:3000']).test_client()
 
 
-def test_default_allowed_origins_is_localhost(config_env):
+def test_allowed_origins_are_empty_without_the_variable(config_env):
     config_env(ALLOWED_ORIGINS=None)
     import config.default
 
-    assert config.default.ALLOWED_ORIGINS == ['http://localhost:3000']
+    assert config.default.ALLOWED_ORIGINS == []
+
+
+@pytest.mark.parametrize('config_file', ['config/development.py', 'config/testing.py'])
+def test_development_and_testing_default_to_localhost(make_app, config_env, config_file):
+    config_env(ALLOWED_ORIGINS=None)
+
+    assert make_app(config_file).config['ALLOWED_ORIGINS'] == ['http://localhost:3000']
+
+
+@pytest.mark.parametrize('value', [None, '', ' , '])
+def test_production_requires_allowed_origins(make_app, config_env, value):
+    config_env(SECRET_KEY='a-real-production-secret', ALLOWED_ORIGINS=value)
+
+    with pytest.raises(RuntimeError, match='ALLOWED_ORIGINS'):
+        make_app('config/production.py')
+
+
+def test_production_uses_the_configured_origins(make_app, config_env):
+    config_env(SECRET_KEY='a-real-production-secret', ALLOWED_ORIGINS=ORIGIN)
+    client = make_app('config/production.py').test_client()
+
+    assert client.application.config['ALLOWED_ORIGINS'] == [ORIGIN]
+    response = client.get('/api/v1/general/ping', headers={'Origin': 'http://localhost:3000'})
+    assert 'Access-Control-Allow-Origin' not in response.headers
 
 
 def test_allowed_origins_are_read_from_the_environment(config_env):

@@ -19,8 +19,9 @@ from baking.main.util import build_info, log_utils
 # Repository root (the folder holding `baking/` and `config/`).
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Development/testing only fallback; production must provide SECRET_KEY via the environment.
+# Development/testing only fallbacks; production must provide SECRET_KEY and ALLOWED_ORIGINS via the environment.
 _DEV_SECRET_KEY = 'dev-insecure-secret-key'
+_DEV_ALLOWED_ORIGINS = ['http://localhost:3000']
 
 flask_bcrypt = Bcrypt()
 
@@ -85,6 +86,13 @@ def create_app(app_config_file=None, test_config=None):
             app.config['SECRET_KEY'] = _DEV_SECRET_KEY
         else:
             raise RuntimeError('SECRET_KEY environment variable must be set outside development/testing')
+
+    if not app.config.get('ALLOWED_ORIGINS'):
+        if app.config.get('ENV') in ('development', 'testing'):
+            app.config['ALLOWED_ORIGINS'] = list(_DEV_ALLOWED_ORIGINS)
+        else:
+            raise RuntimeError('ALLOWED_ORIGINS environment variable must be set outside development/testing '
+                               '(comma separated origins of the frontend, e.g. https://bakinglyrics.com)')
 
     # Setting up logger
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')

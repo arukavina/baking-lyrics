@@ -59,7 +59,7 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - `BAKING_TABLE_PREFIX` (optional): DynamoDB table name prefix, `baking-lyrics` by default. Use your own, such as `baking-lyrics-dev`, for development against real AWS.
 - `AWS_REGION` or `AWS_DEFAULT_REGION` (optional): region of the tables and the S3 bucket, `us-east-1` by default. Lambda sets `AWS_REGION` itself.
 - `DYNAMODB_ENDPOINT_URL` (optional): DynamoDB endpoint for local development, such as a moto server (`http://localhost:5000`) or DynamoDB Local.
-- `ALLOWED_ORIGINS` (optional): comma separated browser origins allowed to call `/api/*` (CORS), `http://localhost:3000` by default.
+- `ALLOWED_ORIGINS`: comma separated browser origins allowed to call `/api/*` (CORS). Required with `config/production.py` (the app refuses to start without it); development and testing fall back to `http://localhost:3000`.
 - `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` (optional): commit sha and ISO 8601 commit date reported by `GET /api/v1/general/version`; when both are unset they are read from git, and they are `null` if git is unavailable.
 - `GENERATION_RATE_LIMIT` (optional): per client limit of the generation routes, `5 per minute;50 per day` by default (see [Run](#run)).
 - `MODEL_DIR`, `MODEL_BUCKET`, `MODEL_PREFIX`, `MODEL_VERSION`, `MODEL_PRELOAD` (optional): where the lyrics model comes from, see [Model](#model).
@@ -213,7 +213,7 @@ These environment variables are set on the function:
 
 - `APP_CONFIG_FILE`: `config/production.py` (also the image default).
 - `SECRET_KEY`: a long random value, required by the production config.
-- `ALLOWED_ORIGINS`: comma separated origins allowed by CORS, for example `https://bakinglyrics.com,https://www.bakinglyrics.com,https://baking-lyrics-web.vercel.app`.
+- `ALLOWED_ORIGINS`: comma separated origins allowed by CORS, required by the production config, for example `https://bakinglyrics.com,https://www.bakinglyrics.com,https://baking-lyrics-web.vercel.app`.
 - `BAKING_TABLE_PREFIX`: prefix of the DynamoDB tables, `baking-lyrics`.
 - `MODEL_BUCKET` and `MODEL_PREFIX` default to `bakinglyrics` and `models/lyrics-lstm` in the image; set `MODEL_VERSION` only to pin or roll back a model version.
 
@@ -227,7 +227,7 @@ Build and run the same image the workflow deploys (Docker, or `nerdctl` with Ran
 
 ```bash
 docker build -t baking-lyrics-backend --build-arg BAKING_COMMIT_SHA=$(git rev-parse HEAD) --build-arg BAKING_COMMIT_DATE=$(git log -1 --format=%cI) .
-docker run --rm -p 8080:8080 -e SECRET_KEY=change-me baking-lyrics-backend
+docker run --rm -p 8080:8080 -e SECRET_KEY=change-me -e ALLOWED_ORIGINS=http://localhost:3000 baking-lyrics-backend
 curl http://localhost:8080/api/v1/general/ping
 ```
 

@@ -5,7 +5,7 @@
 # requests to that port. Outside Lambda the extension is inert, so the same image runs locally:
 #
 #   docker build -t baking-lyrics-backend .
-#   docker run --rm -p 8080:8080 -e SECRET_KEY=change-me baking-lyrics-backend
+#   docker run --rm -p 8080:8080 -e SECRET_KEY=change-me -e ALLOWED_ORIGINS=http://localhost:3000 baking-lyrics-backend
 #   curl http://localhost:8080/api/v1/general/ping
 
 ARG PYTHON_IMAGE=public.ecr.aws/docker/library/python:3.12.16-slim-trixie

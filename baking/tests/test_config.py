@@ -9,6 +9,7 @@ import pytest
 from baking.main.v1.models.generator import get_service
 
 PROD_SECRET = 'a-real-production-secret'
+PROD_ORIGINS = 'https://bakinglyrics.example'
 
 
 def test_app_is_testing(make_app):
@@ -87,7 +88,7 @@ def test_config_files_do_not_hard_code_the_region(config_file):
 
 
 def test_app_is_production(make_app, config_env):
-    config_env(SECRET_KEY=PROD_SECRET)
+    config_env(SECRET_KEY=PROD_SECRET, ALLOWED_ORIGINS=PROD_ORIGINS)
     app = make_app('config/production.py')
 
     assert app.config['DEBUG'] is False
@@ -127,7 +128,7 @@ def test_production_logs_to_stdout_only(tmp_path, config_env, monkeypatch):
 
     from baking.main import create_app
 
-    config_env(SECRET_KEY=PROD_SECRET)
+    config_env(SECRET_KEY=PROD_SECRET, ALLOWED_ORIGINS=PROD_ORIGINS)
     monkeypatch.chdir(tmp_path)
     create_app('config/production.py')
 
