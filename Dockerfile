@@ -25,9 +25,11 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /src
 
-# Install exactly what uv.lock pins for the API (no dev group, no optional extras) into a venv.
+# Install exactly what uv.lock pins for the API plus the `ml` extra (onnxruntime, numpy) into a venv.
+# No dev or train group: torch never enters the image.
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file requirements.lock.txt \
+RUN uv export --frozen --no-dev --extra ml --no-emit-project --format requirements-txt \
+        --output-file requirements.lock.txt \
     && uv venv /opt/venv --python /usr/local/bin/python3 \
     && uv pip install --python /opt/venv/bin/python --no-cache --require-hashes -r requirements.lock.txt
 
@@ -42,8 +44,10 @@ WORKDIR /var/task
 COPY pyproject.toml ./
 COPY config ./config
 COPY baking ./baking
+# Only the serving modules of the model package (ml/__init__.py, generate.py, tokenizer.py; see .dockerignore).
+COPY ml ./ml
 # Lambda mounts the image read only, so compile the bytecode now instead of on every cold start.
-RUN /opt/venv/bin/python -m compileall -q baking config
+RUN /opt/venv/bin/python -m compileall -q baking config ml
 
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
@@ -51,6 +55,13 @@ ENV PATH=/opt/venv/bin:$PATH \
     APP_CONFIG_FILE=config/production.py \
     AWS_LWA_PORT=8080 \
     AWS_LWA_READINESS_CHECK_PATH=/api/v1/general/ping
+
+# Lyrics model bundle: s3://MODEL_BUCKET/MODEL_PREFIX/<version>/, the version named by latest.json unless
+# MODEL_VERSION pins one. It is downloaded to /tmp/models on the first generation request (or at start with
+# MODEL_PRELOAD=true) and reused by later cold starts of the same environment. MODEL_DIR=/path/to/bundle uses
+# a mounted bundle instead of S3. Lambda settings: 2048 MB memory, 30 s timeout, 1024 MB ephemeral storage.
+ENV MODEL_BUCKET=bakinglyrics \
+    MODEL_PREFIX=models/lyrics-lstm
 
 # Commit reported by GET /api/v1/general/version (there is no .git in the image).
 ARG BAKING_COMMIT_SHA=""
