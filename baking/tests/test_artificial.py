@@ -202,7 +202,7 @@ def test_seed_length_counts_decoded_characters(client, fake):
     assert client.get(SEED_SONG.format(lang='en', seed='%20' * 299 + 'a', words=20, artist=1)).status_code == 200
 
 
-@pytest.mark.parametrize('words, expected', [(0, 1), (10, 10), (100000, 500)])
+@pytest.mark.parametrize('words, expected', [(0, 1), (10, 10), (300, 300), (301, 300), (100000, 300)])
 def test_generate_song_bounds_the_word_count(client, fake, words, expected):
     assert client.get(NO_SEED_SONG.format(lang='en', words=words, artist=1)).status_code == 200
     assert fake.calls[-1][3] == expected

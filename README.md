@@ -146,6 +146,7 @@ Lyrics and titles come from one conditional word level LSTM language model, trai
 - Network: three LSTM layers (AWD-LSTM regularisation, tied input and output embeddings), about 25 M parameters, a 100 MB ONNX file.
 - Titles: the model was trained on `lyrics <title> title`, so after writing the lyrics it writes their title.
 - Decoding: temperature, top-k and top-p sampling with a repetition penalty, stopping at the first line end after `number_words` generated words.
+- Length: the API clamps `number_words` to 1 to 300. Training songs are at most 400 tokens including the title, line breaks and punctuation, about 300 words of lyrics, so longer songs would go past anything the model has seen.
 - Seed text: the lyrics start with the whole seed, which does not count towards `number_words`; only its last 64 tokens are fed to the model as the prompt. The API accepts seeds of at most 300 characters and answers `411` with `{"message": "Seed can not be longer than 300 characters"}` otherwise (the same status as an empty seed).
 
 Training, evaluation and retraining are described in [ml/README.md](ml/README.md); the bundle format is in [ml/BUNDLE.md](ml/BUNDLE.md).

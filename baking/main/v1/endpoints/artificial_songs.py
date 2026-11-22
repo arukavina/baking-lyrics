@@ -26,8 +26,11 @@ logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_songs', description='Operations related to artificially generated songs')
 
 
-# Upper bound of the words generated per song (keeps a request well inside the Lambda timeout)
-MAX_WORDS = 500
+# Upper bound of the words generated per song; larger requests are clamped to it (and 0 or less to 1). The model
+# was trained on songs of at most 400 tokens (ml/train.py max_len) including <bos>, the title, <eos>, line breaks
+# and punctuation, which leaves about 300 words of lyrics: past that it writes beyond any length it has seen and
+# tends to ramble before the title. It also keeps a request well inside the Lambda timeout.
+MAX_WORDS = 300
 
 # Upper bound of the seed text, in characters. The model only reads the last 64 tokens of it (see
 # ml.generate.MAX_PROMPT_TOKENS) but echoes all of it at the start of the lyrics.
