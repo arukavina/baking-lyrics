@@ -69,3 +69,17 @@ build_version = api.model('Build version', {
     'commit': fields.String(description='Full git commit sha of the build, null when unknown'),
     'date': fields.String(description='ISO 8601 commit date of the build, null when unknown'),
 })
+
+SHARE_NETWORKS = ('facebook', 'twitter', 'whatsapp')
+
+share_request = api.model('Share request', {
+    'network': fields.String(required=True, example='facebook',
+                             description='Network the song was shared to, one of {} (case-insensitive)'.format(
+                                 ', '.join(SHARE_NETWORKS))),
+})
+
+share_result = api.model('Share result', {
+    'artificial_song_id': fields.Integer(description='The shared artificial song'),
+    'network': fields.String(description='Network the song was shared to, lowercase'),
+    'shares': fields.Integer(description='Total number of shares of the artificial song'),
+})
