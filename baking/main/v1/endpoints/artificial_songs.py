@@ -12,10 +12,10 @@ from flask_restx import Resource, abort
 from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main import api, db
-from baking.main.database.models import ArtificialSong, ArtificialTitle, Artist, Song, utcnow
+from baking.main import api, db, limiter
+from baking.main.database.models import ArtificialSong, ArtificialTitle, Artist, Share, Song, utcnow
 from baking.main.v1.models import machine_learning as ml
-from baking.main.v1.serializers import artificial_song
+from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
 
 logger = logging.getLogger('baking-api')
 
@@ -105,6 +105,35 @@ class ArtificialSongItem(Resource):
             return ArtificialSong.query.filter(ArtificialSong.id == artificial_song_id).one()
         except NoResultFound:
             abort(404, 'Lyric does not exist.')
+
+
+@ns.route('/<int:artificial_song_id>/shares')
+@ns.response(400, 'Missing or unknown network.')
+@ns.response(404, 'ArtificialSong not found.')
+@ns.response(429, 'Too many shares from this address, try again later.')
+class ArtificialSongShares(Resource):
+    # Shares feed a public KPI, so limit how fast one client can add them
+    decorators = [limiter.limit(lambda: app.config['SHARE_RATE_LIMIT'])]
+
+    @ns.expect(share_request, validate=True)
+    @ns.marshal_with(share_result, code=201)
+    def post(self, artificial_song_id):
+        """
+        Records a share of a generated song on a social network and returns its total shares.
+        """
+        network = (api.payload.get('network') or '').strip().lower()
+        if network not in SHARE_NETWORKS:
+            abort(400, 'Unknown network. Expected one of: {}.'.format(', '.join(SHARE_NETWORKS)))
+
+        song = db.session.get(ArtificialSong, artificial_song_id)
+        if song is None:
+            abort(404, 'Lyric does not exist.')
+
+        db.session.add(Share(artificial_song=song, network=network))
+        db.session.commit()
+
+        shares = db.session.query(Share.id).filter(Share.artificial_song_id == artificial_song_id).count()
+        return {'artificial_song_id': artificial_song_id, 'network': network, 'shares': shares}, 201
 
 
 @ns.route('/generate/<lang>/seed/<seed>/words/<int:number_words>/artist/<int:artist_id>/',

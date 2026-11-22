@@ -63,3 +63,37 @@ artificial_song = api.model('ArtificialSong', {
     'user': fields.Nested(user),
     'base_artist': fields.Nested(artist),
 })
+
+build_version = api.model('Build version', {
+    'version': fields.String(description='Project version from pyproject.toml, null when unknown'),
+    'commit': fields.String(description='Full git commit sha of the build, null when unknown'),
+    'date': fields.String(description='ISO 8601 commit date of the build, null when unknown'),
+})
+
+SHARE_NETWORKS = ('facebook', 'twitter', 'whatsapp')
+
+share_request = api.model('Share request', {
+    'network': fields.String(required=True, example='facebook',
+                             description='Network the song was shared to, one of {} (case-insensitive)'.format(
+                                 ', '.join(SHARE_NETWORKS))),
+})
+
+share_result = api.model('Share result', {
+    'artificial_song_id': fields.Integer(description='The shared artificial song'),
+    'network': fields.String(description='Network the song was shared to, lowercase'),
+    'shares': fields.Integer(description='Total number of shares of the artificial song'),
+})
+
+top_artist = api.model('Top artist', {
+    'id': fields.Integer(description='The unique identifier of the artist'),
+    'name': fields.String(description='Artist clean name, falls back to the raw name'),
+    'songs_generated': fields.Integer(description='Number of songs generated in the style of the artist'),
+})
+
+general_stats = api.model('General stats', {
+    'artists': fields.Integer(description='Number of artists'),
+    'songs_generated': fields.Integer(description='Number of generated songs'),
+    'shares': fields.Integer(description='Number of shares of generated songs'),
+    'top_artists': fields.List(fields.Nested(top_artist),
+                               description='Up to 3 artists with the most generated songs, ties broken by name'),
+})

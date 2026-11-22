@@ -31,6 +31,12 @@ RESTX_ERROR_404_HELP = False
 SQLALCHEMY_DATABASE_URI = _database_url()
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+# Rate limiting (Flask-Limiter). In memory per process by default; set RATELIMIT_STORAGE_URI
+# (for example redis://...) when running several workers.
+RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
+RATELIMIT_HEADERS_ENABLED = True
+SHARE_RATE_LIMIT = '10 per minute;100 per day'
+
 # Log
 MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
 LOG_DIR = r'logs/'  # Relative paths are resolved against the repository root

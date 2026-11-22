@@ -123,3 +123,22 @@ class ArtificialSong(db.Model):
 
     def __repr__(self):
         return f'<ArtificialSong named: {self.artificial_title.title!r}>'
+
+
+class Share(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    artificial_song_id = db.Column(db.Integer, db.ForeignKey(ArtificialSong.id), nullable=False, index=True)
+    artificial_song = db.relationship(ArtificialSong, backref=db.backref('shares', lazy='dynamic'))
+    network = db.Column(db.String(20), nullable=False)
+    created_at = db.Column(db.DateTime, default=utcnow)
+
+    def __init__(self, artificial_song, network, created_at=None):
+        self.artificial_song = artificial_song
+        self.network = network
+
+        if created_at is None:
+            created_at = utcnow()
+        self.created_at = created_at
+
+    def __repr__(self):
+        return f'<Share {self.network!r} of ArtificialSong {self.artificial_song_id!r}>'
