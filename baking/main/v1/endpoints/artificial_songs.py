@@ -12,7 +12,7 @@ from flask_restx import Resource, abort
 from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main import api, db
+from baking.main import api, db, limiter
 from baking.main.database.models import ArtificialSong, ArtificialTitle, Artist, Share, Song, utcnow
 from baking.main.v1.models import machine_learning as ml
 from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
@@ -110,7 +110,10 @@ class ArtificialSongItem(Resource):
 @ns.route('/<int:artificial_song_id>/shares')
 @ns.response(400, 'Missing or unknown network.')
 @ns.response(404, 'ArtificialSong not found.')
+@ns.response(429, 'Too many shares from this address, try again later.')
 class ArtificialSongShares(Resource):
+    # Shares feed a public KPI, so limit how fast one client can add them
+    decorators = [limiter.limit(lambda: app.config['SHARE_RATE_LIMIT'])]
 
     @ns.expect(share_request, validate=True)
     @ns.marshal_with(share_result, code=201)

@@ -81,3 +81,23 @@ def test_shares_relationship(app_ctx, client):
     client.post(SHARES.format(4), json={'network': 'facebook'})
 
     assert db.session.get(ArtificialSong, 4).shares.count() == 1
+
+
+def test_shares_are_rate_limited_per_client(make_app):
+    from baking.main import db, limiter
+    from baking.refresh_database import create_artificial, load_song_data, refresh
+
+    app = make_app(RATELIMIT_ENABLED=True, SHARE_RATE_LIMIT='3 per minute')
+    with app.app_context():
+        db.create_all()
+        song_data = load_song_data(app)
+        refresh(app, song_data)
+        create_artificial(song_data)
+        limiter.reset()
+    client = app.test_client()
+
+    statuses = [client.post(SHARES.format(1), json={'network': 'facebook'}).status_code for _ in range(4)]
+
+    assert statuses == [201, 201, 201, 429]
+    with app.app_context():
+        limiter.reset()

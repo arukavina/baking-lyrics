@@ -56,6 +56,7 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - `SECRET_KEY`: required with `config/production.py`; development and testing fall back to a dev only key.
 - `DATABASE_URL` (optional): overrides the default SQLite database (`baking/resources/flask_bakinglyrics_main.db`). `postgres://` URLs are accepted.
 - `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` (optional): commit sha and ISO 8601 commit date reported by `GET /api/v1/general/version`; when both are unset they are read from git, and they are `null` if git is unavailable.
+- `RATELIMIT_STORAGE_URI` (optional): storage for rate limits, `memory://` by default; use a shared store such as `redis://` with several workers. Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`).
 
 These can also go in a `.env` file at the repo root (it is gitignored).
 

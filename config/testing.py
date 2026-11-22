@@ -58,3 +58,6 @@ SQLALCHEMY_DATABASE_URI = os.environ.get('TEST_DATABASE_URL', 'sqlite://')
 SQLALCHEMY_ECHO = False
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 DATA_FILE_PATH = r'baking/resources/lyrics_4_tests.csv'
+
+# Off by default in tests; tests that check limits enable it explicitly
+RATELIMIT_ENABLED = False

@@ -38,10 +38,8 @@ flask_bcrypt = Bcrypt()
 api = Api(version='1.0', title='Baking-Lyrics API',
           description='A funny lyrics generator Flask RESTX powered API')
 
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
+# No global limits: only endpoints that write public counters are limited (see SHARE_RATE_LIMIT)
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 _logger = logging.getLogger('baking-api')
 
@@ -174,6 +172,7 @@ def create_app(app_config_file=None, test_config=None):
     # Igniting DB
     db.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
 
     # Bcrypt
     flask_bcrypt.init_app(app)
