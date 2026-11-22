@@ -37,6 +37,38 @@ def test_song_list(client):
     response = client.get('/api/v1/songs/')
 
     assert response.status_code == 200
-    assert [s['id'] for s in response.json] == [1, 2, 3, 4, 5, 6]
+    assert {key: response.json[key] for key in ('page', 'pages', 'per_page', 'total')} == {
+        'page': 1, 'pages': 1, 'per_page': 10, 'total': 6}
+    assert [s['id'] for s in response.json['items']] == [1, 2, 3, 4, 5, 6]
+    assert response.json['items'][0]['artist'] == [SEEDED_ARTIST]
+
+
+def test_song_list_paginates(client):
+    pages = [client.get(f'/api/v1/songs/?page={page}&per_page=2').json for page in (0, 1, 2, 3, 4)]
+
+    assert [[s['id'] for s in page['items']] for page in pages] == [[1, 2], [1, 2], [3, 4], [5, 6], []]
+    assert [page['page'] for page in pages] == [1, 1, 2, 3, 4]
+    assert {(page['total'], page['pages']) for page in pages} == {(6, 3)}
+
+
+def test_song_list_reads_only_up_to_the_end_of_the_page(app_repo, client, monkeypatch):
+    table = app_repo.table('catalog')
+    limits = []
+    query = table.query
+
+    def spy(**kwargs):
+        limits.append(kwargs.get('Limit'))
+        return query(**kwargs)
+
+    monkeypatch.setattr(table, 'query', spy)
+
+    response = client.get('/api/v1/songs/?page=2&per_page=2')
+
+    assert [s['id'] for s in response.json['items']] == [3, 4]
+    assert limits == [4]
+
+
+def test_song_list_rejects_unsupported_per_page(client):
+    assert client.get('/api/v1/songs/?per_page=1000').status_code == 400
 
 

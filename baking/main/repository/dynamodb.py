@@ -5,6 +5,10 @@ The catalog is small (at most 900 artists and 9,000 songs), so artists are read 
 of the ``by_entity`` index and kept in memory for ``cache_seconds``; search, cover, archive and pagination
 work on that list. Songs and generated songs are read item by item (GetItem) or by index Query, and
 totals come from atomic counters, never from scans.
+
+List pages read only what they show: a page of songs queries ``by_entity`` with Limit up to the end of the
+page; generated songs and titles have dense ids (one sequence, never deleted), so a page of them, most recent
+first, is one Query of an id range with ScanIndexForward=False.
 """
 
 # Generic
@@ -263,6 +267,38 @@ class DynamoRepository(Repository):
     def list_songs(self):
         return [self._song(item) for item in self._entities(schema.CATALOG, 'SONG')]
 
+    def _total(self, name):
+        item = self.table(schema.COUNTERS).get_item(Key={'pk': STATS, 'sk': STATS_SK}).get('Item') or {}
+        return _int(item.get(name))
+
+    def _sequence_value(self, sequence):
+        item = self.table(schema.COUNTERS).get_item(Key={'pk': SEQ, 'sk': sequence}).get('Item')
+        return _int(item.get('value')) if item else 0
+
+    def page_songs(self, page, per_page):
+        skip = (max(page, 1) - 1) * per_page
+        kwargs = {'IndexName': schema.BY_ENTITY_INDEX, 'KeyConditionExpression': Key('entity').eq('SONG')}
+        items = []
+        while len(items) < skip + per_page:
+            response = self.table(schema.CATALOG).query(Limit=skip + per_page - len(items), **kwargs)
+            items.extend(response.get('Items', []))
+            if 'LastEvaluatedKey' not in response:
+                break
+            kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+        return [self._song(item) for item in items[skip:skip + per_page]], self._total('songs')
+
+    def _page_by_id_desc(self, entity, sequence, page, per_page):
+        """Items of `entity` in the generated table with ids in the page's range, highest id first."""
+        total = self._sequence_value(sequence)
+        high = total - (max(page, 1) - 1) * per_page
+        if high < 1:
+            return [], total
+        low = max(1, high - per_page + 1)
+        items = self._query_all(self.table(schema.GENERATED), IndexName=schema.BY_ENTITY_INDEX,
+                                KeyConditionExpression=Key('entity').eq(entity) & Key('id').between(low, high),
+                                ScanIndexForward=False)
+        return items, total
+
     def get_song(self, song_id):
         item = self.table(schema.CATALOG).get_item(Key={'pk': f'SONG#{song_id}'}).get('Item')
         return self._song(item) if item else None
@@ -345,6 +381,10 @@ class DynamoRepository(Repository):
     def list_titles(self):
         return [self._title(item) for item in self._entities(schema.GENERATED, 'TITLE')]
 
+    def page_titles(self, page, per_page):
+        items, total = self._page_by_id_desc('TITLE', 'artificial_title', page, per_page)
+        return [self._title(item) for item in items], total
+
     def create_title(self, title, creation_date=None):
         record = {'id': self.next_id('artificial_title'), 'title': title, 'creation_date': creation_date or utcnow()}
         self.table(schema.GENERATED).put_item(Item=_clean({
@@ -354,6 +394,10 @@ class DynamoRepository(Repository):
 
     def list_generated_songs(self):
         return [self._generated_song(item) for item in self._entities(schema.GENERATED, 'SONG')]
+
+    def page_generated_songs(self, page, per_page):
+        items, total = self._page_by_id_desc('SONG', 'artificial_song', page, per_page)
+        return [self._generated_song(item) for item in items], total
 
     def get_generated_song(self, song_id):
         item = self.table(schema.GENERATED).get_item(Key={'pk': f'SONG#{song_id}'}).get('Item')

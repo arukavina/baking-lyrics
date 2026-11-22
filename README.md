@@ -122,6 +122,8 @@ Seed the catalog:
 - Open the Swagger UI at http://localhost:9090/api/v1/
 - Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`), counted in the ratelimit table so the limit holds across processes; the client is the left-most `X-Forwarded-For` address.
 - The catalog is read only through the API: genres, artists and songs change only by seeding.
+- The list endpoints `GET /api/v1/artists/`, `/songs/`, `/artificial_songs/` and `/artificial_titles/` are paginated with the query parameters `page` (from 1) and `per_page` (2, 10, 20, 30, 40 or 50, 10 by default) and answer `{"items": [...], "page", "pages", "per_page", "total"}`; a page past the end has no items.
+- Artists and songs are listed by id, generated songs and titles most recent first. A page reads only what it shows (a Query with `Limit`, or an id range of the `by_entity` index newest first for generated songs and titles), so no list ever returns or reads a whole table.
 
 ## Test and lint
 

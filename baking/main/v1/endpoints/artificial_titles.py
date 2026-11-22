@@ -2,14 +2,15 @@
 import logging
 
 # Libs
-from flask import current_app
+from flask import current_app, request
 from flask_restx import Resource, abort
 
 # Own
 from baking.main import api
 from baking.main.repository import get_repository
 from baking.main.v1.models import generator
-from baking.main.v1.serializers import artificial_title
+from baking.main.v1.parsers import page_of, pagination_arguments
+from baking.main.v1.serializers import artificial_title, page_of_artificial_titles
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_titles', description='Operations related to artificially generated titles')
@@ -18,12 +19,16 @@ ns = api.namespace('artificial_titles', description='Operations related to artif
 @ns.route('/')
 class ArtificialTitleCollection(Resource):
 
-    @ns.marshal_list_with(artificial_title)
+    @api.expect(pagination_arguments)
+    @ns.marshal_with(page_of_artificial_titles)
     def get(self):
         """
-        Returns list of generated titles
+        Returns a page of generated titles, most recent first.
         """
-        return get_repository().list_titles()
+        args = pagination_arguments.parse_args(request)
+        page, per_page = args.get('page', 1), args.get('per_page', 10)
+        titles, total = get_repository().page_titles(page, per_page)
+        return page_of(titles, total, page, per_page)
 
 
 @ns.route('/generate/<lang>/song/<int:song_id>/')

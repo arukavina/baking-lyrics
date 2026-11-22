@@ -25,3 +25,20 @@ def paginate(items, page, per_page):
         'per_page': per_page,
         'total': total,
     }
+
+
+def page_of(items, total, page, per_page):
+    """
+    A page already read by the repository, shaped like `paginate`.
+    :param items: the items of this page
+    :param total: total number of items
+    :param page: 1 based page number (below 1 means 1)
+    :param per_page: items per page
+    """
+    return {
+        'items': items,
+        'page': page if page and page > 0 else 1,
+        'pages': -(-total // per_page) if total else 0,
+        'per_page': per_page,
+        'total': total,
+    }

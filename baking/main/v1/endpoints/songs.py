@@ -2,12 +2,14 @@
 import logging
 
 # Libs
+from flask import request
 from flask_restx import Resource, abort
 
 # Own
 from baking.main import api
 from baking.main.repository import get_repository
-from baking.main.v1.serializers import song, song_view
+from baking.main.v1.parsers import page_of, pagination_arguments
+from baking.main.v1.serializers import page_of_songs, song, song_view
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('songs', description='Operations related to songs')
@@ -16,12 +18,16 @@ ns = api.namespace('songs', description='Operations related to songs')
 @ns.route('/')
 class SongCollection(Resource):
 
-    @ns.marshal_list_with(song)
+    @api.expect(pagination_arguments)
+    @ns.marshal_with(page_of_songs)
     def get(self):
         """
-        Returns list of songs
+        Returns a page of songs ordered by id.
         """
-        return [song_view(found) for found in get_repository().list_songs()]
+        args = pagination_arguments.parse_args(request)
+        page, per_page = args.get('page', 1), args.get('per_page', 10)
+        songs, total = get_repository().page_songs(page, per_page)
+        return page_of([song_view(found) for found in songs], total, page, per_page)
 
 
 @ns.route('/<int:song_id>')

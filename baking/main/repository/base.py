@@ -52,6 +52,13 @@ class Repository(ABC):
         """All songs ordered by id."""
 
     @abstractmethod
+    def page_songs(self, page, per_page):
+        """
+        One page of songs ordered by id: ``(songs, total)``. Reads only the songs up to the end of the page,
+        never the whole catalog.
+        """
+
+    @abstractmethod
     def get_song(self, song_id):
         """The song or None."""
 
@@ -87,12 +94,20 @@ class Repository(ABC):
         """All generated titles ordered by id."""
 
     @abstractmethod
+    def page_titles(self, page, per_page):
+        """One page of generated titles, most recent (highest id) first: ``(titles, total)``."""
+
+    @abstractmethod
     def create_title(self, title, creation_date=None):
         """Stores a generated title and returns it."""
 
     @abstractmethod
     def list_generated_songs(self):
         """All generated songs ordered by id."""
+
+    @abstractmethod
+    def page_generated_songs(self, page, per_page):
+        """One page of generated songs, most recent (highest id) first: ``(songs, total)``."""
 
     @abstractmethod
     def get_generated_song(self, song_id):

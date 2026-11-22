@@ -31,9 +31,46 @@ def test_all_artificial_songs_get(client):
     response = client.get('/api/v1/artificial_songs/')
 
     assert response.status_code == 200
-    assert len(response.json) == 6
-    assert response.json[0]['base_artist']['id'] == 1
-    assert response.json[0]['artificial_title']['title'] == 'ego-remix'
+    assert {key: response.json[key] for key in ('page', 'pages', 'per_page', 'total')} == {
+        'page': 1, 'pages': 1, 'per_page': 10, 'total': 6}
+    # most recent first
+    assert [song['id'] for song in response.json['items']] == [6, 5, 4, 3, 2, 1]
+    assert response.json['items'][-1]['base_artist']['id'] == 1
+    assert response.json['items'][-1]['artificial_title']['title'] == 'ego-remix'
+
+
+@pytest.mark.parametrize('url', ['/api/v1/artificial_songs/', '/api/v1/artificial_titles/'])
+def test_generated_lists_paginate_most_recent_first(client, url):
+    pages = [client.get(f'{url}?page={page}&per_page=2').json for page in (1, 2, 3, 4)]
+
+    assert [[item['id'] for item in page['items']] for page in pages] == [[6, 5], [4, 3], [2, 1], []]
+    assert {(page['total'], page['pages'], page['per_page']) for page in pages} == {(6, 3, 2)}
+
+
+@pytest.mark.parametrize('url', ['/api/v1/artificial_songs/', '/api/v1/artificial_titles/'])
+def test_generated_lists_read_one_page(app_repo, client, url, monkeypatch):
+    """A page is one bounded Query on the by_entity index, newest first, never a read of every item."""
+    table = app_repo.table('generated')
+    calls = []
+    query = table.query
+
+    def spy(**kwargs):
+        calls.append(kwargs)
+        return query(**kwargs)
+
+    monkeypatch.setattr(table, 'query', spy)
+
+    response = client.get(f'{url}?page=2&per_page=2')
+
+    assert [item['id'] for item in response.json['items']] == [4, 3]
+    assert len(calls) == 1
+    assert calls[0]['IndexName'] == 'by_entity'
+    assert calls[0]['ScanIndexForward'] is False
+
+
+@pytest.mark.parametrize('url', ['/api/v1/artificial_songs/', '/api/v1/artificial_titles/'])
+def test_generated_lists_reject_unsupported_per_page(client, url):
+    assert client.get(f'{url}?per_page=1000').status_code == 400
 
 
 def test_one_artificial_song_get(client):
@@ -55,7 +92,8 @@ def test_all_artificial_titles_get(client):
     response = client.get('/api/v1/artificial_titles/')
 
     assert response.status_code == 200
-    assert len(response.json) == 6
+    assert response.json['total'] == 6
+    assert [title['id'] for title in response.json['items']] == [6, 5, 4, 3, 2, 1]
 
 
 # Generation endpoints without ML
@@ -136,7 +174,8 @@ def test_generate_song_stores_song_and_title(app_repo, client, fake, url, seed_t
     assert response.json['base_artist']['id'] == 1
     assert fake.calls == [('generate', 'beyonce-knowles', seed_text, 50, None)]
     assert client.get('/api/v1/artificial_songs/7').json == response.json
-    assert len(client.get('/api/v1/artificial_titles/').json) == 7
+    assert client.get('/api/v1/artificial_songs/').json['items'][0] == response.json
+    assert client.get('/api/v1/artificial_titles/').json['total'] == 7
     assert app_repo.get_stats()['songs_generated'] == 7
 
 
@@ -156,7 +195,7 @@ def test_generate_title_stores_title(app_repo, client, fake):
     assert response.json['id'] == 7
     assert response.json['title'] == 'Brand New Title'
     assert fake.calls == [('generate_title', 'beyonce-knowles', lyrics)]
-    assert len(client.get('/api/v1/artificial_titles/').json) == 7
+    assert client.get('/api/v1/artificial_titles/').json['items'][0] == response.json
     # a title on its own is not a generated song
     assert app_repo.get_stats()['songs_generated'] == 6
 

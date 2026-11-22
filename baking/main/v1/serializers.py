@@ -40,10 +40,18 @@ song = api.model('Song', {
     'artist': fields.List(fields.Nested(artist)),
 })
 
+page_of_songs = api.inherit('Page of songs', pagination, {
+    'items': fields.List(fields.Nested(song))
+})
+
 artificial_title = api.model('ArtificialTitle', {
     'id': fields.Integer(readOnly=True, description='The unique identifier of an artificial title'),
     'title': fields.String(required=True, description='Title value'),
     'creation_date': fields.DateTime,
+})
+
+page_of_artificial_titles = api.inherit('Page of artificial titles', pagination, {
+    'items': fields.List(fields.Nested(artificial_title))
 })
 
 user = api.model('User', {
@@ -62,6 +70,10 @@ artificial_song = api.model('ArtificialSong', {
     'creation_date': fields.DateTime,
     'user': fields.Nested(user),
     'base_artist': fields.Nested(artist),
+})
+
+page_of_artificial_songs = api.inherit('Page of artificial songs', pagination, {
+    'items': fields.List(fields.Nested(artificial_song))
 })
 
 build_version = api.model('Build version', {

@@ -12,7 +12,14 @@ from flask_restx import Resource, abort
 from baking.main import api, ratelimit
 from baking.main.repository import get_repository, schema
 from baking.main.v1.models import generator
-from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
+from baking.main.v1.parsers import page_of, pagination_arguments
+from baking.main.v1.serializers import (
+    SHARE_NETWORKS,
+    artificial_song,
+    page_of_artificial_songs,
+    share_request,
+    share_result,
+)
 
 logger = logging.getLogger('baking-api')
 
@@ -89,12 +96,16 @@ def save_generated_song(title, lyrics, model, artist):
 @ns.route('/')
 class ArtificialSongCollection(Resource):
 
-    @ns.marshal_list_with(artificial_song)
+    @api.expect(pagination_arguments)
+    @ns.marshal_with(page_of_artificial_songs)
     def get(self):
         """
-        Returns list of generated songs
+        Returns a page of generated songs, most recent first.
         """
-        return get_repository().list_generated_songs()
+        args = pagination_arguments.parse_args(request)
+        page, per_page = args.get('page', 1), args.get('per_page', 10)
+        songs, total = get_repository().page_generated_songs(page, per_page)
+        return page_of(songs, total, page, per_page)
 
 
 @ns.route('/<int:artificial_song_id>')
