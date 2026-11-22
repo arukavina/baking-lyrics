@@ -23,10 +23,8 @@ dependencies = [
 
 [project.optional-dependencies]
 ml = [
-    "tensorflow>=2.18",
-    "tf-keras>=2.18",
-    "keras-self-attention>=0.51",
-    "h5py>=3.12",
+    "onnxruntime>=1.20",
+    "numpy>=2.1",
 ]
 
 [dependency-groups]
@@ -34,6 +32,17 @@ dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
     "ruff>=0.8",
+]
+train = [
+    "torch>=2.9",
+    "onnx>=1.17",
+    "onnxscript>=0.5",
+    "onnxruntime>=1.20",
+    "pandas>=2.2",
+    "pyarrow>=18.0",
+    "kagglehub>=0.3",
+    "fast-langdetect>=1.0",
+    "tqdm>=4.66",
 ]
 
 [tool.uv]
