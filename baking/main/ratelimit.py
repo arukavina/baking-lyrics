@@ -47,14 +47,10 @@ def client_ip(request):
     The client address of a Flask request.
 
     Behind the Lambda Function URL and the AWS Lambda Web Adapter, `remote_addr` is the adapter on localhost, so:
-    the left-most X-Forwarded-For entry, else the client IP of the Function URL request context (the adapter
-    passes it as JSON in the x-amzn-request-context header, field http.sourceIp), else remote_addr.
+    the client IP of the Function URL request context first (the adapter always sets the x-amzn-request-context
+    header itself, field http.sourceIp, so clients cannot forge it), else the left-most X-Forwarded-For entry
+    (local runs behind a proxy), else remote_addr.
     """
-    forwarded = request.headers.get('X-Forwarded-For', '')
-    first = forwarded.split(',')[0].strip()
-    if first:
-        return first
-
     context = request.headers.get('X-Amzn-Request-Context')
     if context:
         try:
@@ -63,6 +59,11 @@ def client_ip(request):
             source_ip = None
         if source_ip:
             return source_ip
+
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    first = forwarded.split(',')[0].strip()
+    if first:
+        return first
 
     return request.remote_addr
 

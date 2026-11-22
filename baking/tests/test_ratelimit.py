@@ -62,11 +62,12 @@ def test_client_ip_uses_the_lambda_request_context():
     assert ratelimit.client_ip(request) == '198.51.100.4'
 
 
-def test_client_ip_prefers_forwarded_for_over_request_context():
+def test_client_ip_prefers_request_context_over_forwarded_for():
     context = {'http': {'sourceIp': '198.51.100.4'}}
     request = request_with({'X-Forwarded-For': '203.0.113.7', 'X-Amzn-Request-Context': json.dumps(context)})
 
-    assert ratelimit.client_ip(request) == '203.0.113.7'
+    # A client can put anything in X-Forwarded-For; the adapter always sets the request context itself
+    assert ratelimit.client_ip(request) == '198.51.100.4'
 
 
 @pytest.mark.parametrize('context', ['not json', '[]', '{"http": {}}'])
