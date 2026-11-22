@@ -1,0 +1,10 @@
+# Local datasets, training runs and exported bundles never go to git.
+data/
+runs/
+bundles/
+legacy/
+*.pt
+*.onnx
+*.onnx.data
+*.parquet
+.ipynb_checkpoints/

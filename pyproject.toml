@@ -49,7 +49,7 @@ train = [
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["baking/tests"]
+testpaths = ["baking/tests", "ml/tests"]
 addopts = "-ra"
 
 [tool.ruff]
