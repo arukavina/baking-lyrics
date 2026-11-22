@@ -19,6 +19,13 @@ a few threads. The process keeps a single generator (one ONNX session, about the
 serialises generations with a lock. On Lambda an execution environment receives one request at a time, so the
 lock never waits there; locally concurrent requests simply queue for the 1 to 3 seconds a song takes.
 
+Bundle file names come from config.json, so they are checked before anything is downloaded or read: a name must
+be a plain file name (no `/`, `\\`, `..` or absolute path), which keeps every file inside the bundle directory.
+
+boto3: the S3 client is built from its own boto3.session.Session, never from boto3's shared default session,
+whose lazy creation is not thread safe (MODEL_PRELOAD loads in a thread while a request may be building the
+DynamoDB resource).
+
 Nothing here imports torch: only `ml.generate` and `ml.tokenizer` (numpy, onnxruntime) are loaded, lazily.
 """
 
@@ -38,6 +45,11 @@ logger = logging.getLogger('baking-api')
 EXTENSION_KEY = 'lyrics_model'
 REQUIRED_FILES = ('model.onnx', 'vocab.json', 'artists.json', 'config.json')
 DEFAULT_NAME = 'lyrics-lstm'
+
+# onnxruntime intra op threads when MODEL_THREADS is not set. Lambda at 2048 MB gets about 1.16 vCPU of CPU time
+# while os.cpu_count() reports 2, so a second thread mostly competes with the first (and with gunicorn) for the
+# same share; batch 1 LSTM steps are too small to gain from it.
+DEFAULT_THREADS = 1
 
 
 class ModelUnavailable(Exception):
@@ -97,9 +109,29 @@ def sha256_of(path):
     return digest.hexdigest()
 
 
+def is_safe_file_name(name):
+    """True for a plain file name that stays inside the bundle directory (no separators, `..` or drive)."""
+    return (isinstance(name, str) and name not in ('', '.', '..') and '/' not in name and '\\' not in name
+            and '..' not in name and ':' not in name and not Path(name).is_absolute())
+
+
+def bundle_file_names(config):
+    """
+    The file names listed in config.json `files`. Raises ModelUnavailable when one could escape the bundle
+    directory (path traversal), before any of them is downloaded or read.
+    """
+    files = config.get('files', {})
+    if not isinstance(files, dict):
+        raise ModelUnavailable('config.json `files` must be an object')
+    unsafe = [name for name in files if not is_safe_file_name(name)]
+    if unsafe:
+        raise ModelUnavailable(f'config.json lists unsafe file names: {", ".join(map(repr, unsafe))}')
+    return list(files)
+
+
 def verify_bundle(bundle_dir):
     """
-    Checks the required files and the sha256 of every file listed in config.json `files`.
+    Checks the file names, the required files and the sha256 of every file listed in config.json `files`.
     Returns the parsed config.json. Raises ModelUnavailable on any problem.
     """
     bundle_dir = Path(bundle_dir)
@@ -107,6 +139,7 @@ def verify_bundle(bundle_dir):
     if missing:
         raise ModelUnavailable(f'{bundle_dir}: missing {", ".join(missing)}')
     config = json.loads((bundle_dir / 'config.json').read_text(encoding='utf-8'))
+    bundle_file_names(config)
     for name, info in config.get('files', {}).items():
         path = bundle_dir / name
         if not path.is_file():
@@ -135,9 +168,10 @@ class S3BundleSource:
     @property
     def client(self):
         if self._client is None:
-            import boto3
+            import boto3.session
 
-            self._client = boto3.client('s3', region_name=self.settings.region)
+            # A dedicated session: the default one is shared with the request threads and not thread safe
+            self._client = boto3.session.Session().client('s3', region_name=self.settings.region)
         return self._client
 
     def _key(self, *parts):
@@ -162,7 +196,7 @@ class S3BundleSource:
     def fetch(self):
         """Returns the local directory of a verified bundle, downloading only what is missing or corrupt."""
         version, prefix = self.resolve_version()
-        if '/' in version or version in ('', '.', '..'):
+        if not is_safe_file_name(str(version)):
             raise ModelUnavailable(f'invalid model version {version!r}')
         target = self.settings.cache_root / version
         target.mkdir(parents=True, exist_ok=True)
@@ -177,7 +211,7 @@ class S3BundleSource:
         config = json.loads(config_path.read_text(encoding='utf-8'))
         if str(config.get('version')) != str(version):
             raise ModelUnavailable(f'config.json of {prefix} is version {config.get("version")!r}, not {version!r}')
-        names = set(config.get('files', {})) | set(REQUIRED_FILES)
+        names = set(bundle_file_names(config)) | set(REQUIRED_FILES)
         names.discard('config.json')
         for name in sorted(names):
             path = target / name
@@ -235,9 +269,9 @@ class ModelService:
     # Loading
 
     def _threads(self):
-        # An explicit thread count also keeps onnxruntime from pinning threads to cores, which fails in some
-        # containers. Lambda exposes 2 vCPUs at 2048 MB.
-        return self.settings.threads or max(1, min(os.cpu_count() or 1, 4))
+        # Always an explicit count: it also keeps onnxruntime from pinning threads to cores, which fails in some
+        # containers. See DEFAULT_THREADS.
+        return self.settings.threads or DEFAULT_THREADS
 
     def _load(self):
         started = time.perf_counter()

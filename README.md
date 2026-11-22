@@ -154,7 +154,7 @@ Training, evaluation and retraining are described in [ml/README.md](ml/README.md
 - The API loads the model on the first generation request, so starting the API and the health check stay fast; `MODEL_PRELOAD=true` starts loading in the background when the app starts instead.
 - With `MODEL_DIR` set, the bundle is read from that folder.
 - Otherwise it is read from `s3://<MODEL_BUCKET>/<MODEL_PREFIX>/<version>/`, where the version is `MODEL_VERSION` when set, else the one named by `<MODEL_PREFIX>/latest.json`.
-- Downloaded files go to `/tmp/models/<version>/` (`MODEL_CACHE_DIR` changes it), are checked against the sha256 values in `config.json`, and are reused by later starts of the same Lambda environment.
+- Downloaded files go to `/tmp/models/<version>/` (`MODEL_CACHE_DIR` changes it), are checked against the sha256 values in `config.json`, and are reused by later starts of the same Lambda environment. File names in `config.json` must be plain names (no `/`, `\`, `..` or absolute path) and the version a plain folder name, or the bundle is rejected before anything is downloaded.
 - A new version is picked up by new Lambda environments; publish it with `python -m ml.publish` and redeploy (or update any setting) to roll every environment over.
 - If the model cannot be loaded, the API keeps running: generation endpoints answer 503 and the error is logged; the load is retried after 5 minutes.
 - The generator is not thread safe, so each process keeps one model and runs one generation at a time; Lambda sends one request at a time to an environment anyway.
@@ -169,7 +169,7 @@ Training, evaluation and retraining are described in [ml/README.md](ml/README.md
 | `MODEL_VERSION` | unset | Pins a version instead of `latest.json` |
 | `MODEL_PRELOAD` | `false` | Load at start in the background instead of on the first generation request |
 | `MODEL_CACHE_DIR` | `/tmp/models` | Download folder |
-| `MODEL_THREADS` | CPU count, at most 4 | onnxruntime threads per generation |
+| `MODEL_THREADS` | `1` | onnxruntime threads per generation (Lambda at 2048 MB gets about 1.16 vCPU although `os.cpu_count()` reports 2, so more threads only compete) |
 
 ## History
 
@@ -217,7 +217,7 @@ These environment variables are set on the function:
 
 `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` are not set on the function: the workflow bakes them into the image as build arguments, so `GET /api/v1/general/version` reports the deployed commit.
 
-The function uses 2048 MB of memory (about 1.2 vCPU, so the 100 MB model generates a 150 word song in about 2 to 3 seconds), a 30 second timeout and 1024 MB of ephemeral storage (`/tmp` holds the downloaded model); its execution role grants DynamoDB access to `baking-lyrics-*`, read access to `s3://bakinglyrics` and CloudWatch Logs.
+The function uses 2048 MB of memory (about 1.16 vCPU, so the 100 MB model generates a 150 word song in about 2 to 3 seconds), a 30 second timeout and 1024 MB of ephemeral storage (`/tmp` holds the downloaded model); its execution role grants DynamoDB access to `baking-lyrics-*`, read access to `s3://bakinglyrics` and CloudWatch Logs.
 
 ## Run the container locally
 

@@ -18,7 +18,7 @@ import uuid
 from datetime import UTC, date, datetime
 
 # Libs
-import boto3
+import boto3.session
 from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
@@ -91,9 +91,12 @@ class DynamoRepository(Repository):
 
     @property
     def resource(self):
-        # Created lazily: building the app must not need AWS credentials or network access.
+        # Created lazily: building the app must not need AWS credentials or network access. A dedicated session:
+        # boto3's default session is shared with other threads (the MODEL_PRELOAD thread builds its S3 client
+        # meanwhile) and its lazy creation is not thread safe.
         if self._resource is None:
-            self._resource = boto3.resource('dynamodb', region_name=self.region, endpoint_url=self.endpoint_url)
+            self._resource = boto3.session.Session().resource('dynamodb', region_name=self.region,
+                                                              endpoint_url=self.endpoint_url)
         return self._resource
 
     def table(self, name):

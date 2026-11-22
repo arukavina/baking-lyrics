@@ -114,6 +114,17 @@ def test_settings_from_config():
     assert ModelSettings.from_config({}).enabled is False
 
 
+def test_default_threads_is_one(tmp_path, monkeypatch):
+    """Lambda at 2048 MB reports 2 CPUs but gets about 1.16 vCPU: the default never follows os.cpu_count()."""
+    monkeypatch.setattr(generator.os, 'cpu_count', lambda: 8)
+    loader = StubLoader()
+    service = ModelService(ModelSettings(local_dir=str(write_bundle(tmp_path / 'b'))), loader=loader)
+
+    service.get()
+
+    assert loader.calls[0][1] == generator.DEFAULT_THREADS == 1
+
+
 def test_disabled_service_never_loads():
     loader = StubLoader()
     service = ModelService(ModelSettings(), loader=loader)
@@ -139,6 +150,72 @@ def test_verify_bundle(tmp_path):
     (bundle / 'vocab.json').unlink()
     with pytest.raises(ModelUnavailable, match='missing vocab.json'):
         verify_bundle(bundle)
+
+
+UNSAFE_NAMES = ['../evil.py', '..\\evil.py', 'sub/model.onnx', 'sub\\model.onnx', '/etc/passwd', 'C:\\evil',
+                'C:evil', '..', '.', '', 'a..b']
+
+
+@pytest.mark.parametrize('name', UNSAFE_NAMES)
+def test_unsafe_file_names_are_rejected(name):
+    assert generator.is_safe_file_name(name) is False
+    with pytest.raises(ModelUnavailable, match='unsafe file names'):
+        generator.bundle_file_names({'files': {'model.onnx': {}, name: {'sha256': 'x'}}})
+
+
+@pytest.mark.parametrize('name', ['model.onnx', 'vocab.json', 'samples.md', '2026.11.0'])
+def test_plain_file_names_are_accepted(name):
+    assert generator.is_safe_file_name(name) is True
+
+
+def add_to_config(bundle, name, data=b'x'):
+    config = json.loads((bundle / 'config.json').read_text(encoding='utf-8'))
+    config['files'][name] = {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
+    (bundle / 'config.json').write_text(json.dumps(config), encoding='utf-8')
+
+
+def test_verify_bundle_rejects_a_traversing_file_name_before_reading_it(tmp_path):
+    bundle = write_bundle(tmp_path / 'bundle')
+    (tmp_path / 'outside.txt').write_bytes(b'x')  # would even match its sha256
+    add_to_config(bundle, '../outside.txt')
+
+    with pytest.raises(ModelUnavailable, match='unsafe file names'):
+        verify_bundle(bundle)
+
+
+def test_s3_traversing_file_name_is_never_downloaded(tmp_path, s3):
+    files, config = bundle_files('1.0.0')
+    config['files']['../../escaped.txt'] = {'bytes': 1, 'sha256': hashlib.sha256(b'x').hexdigest()}
+    publish(s3, '1.0.0')
+    s3.put_object(Bucket=BUCKET, Key=f'{PREFIX}/1.0.0/config.json', Body=json.dumps(config).encode())
+    s3.put_object(Bucket=BUCKET, Key=f'{PREFIX}/1.0.0/../../escaped.txt', Body=b'x')
+    client = CountingClient(s3)
+    service = s3_service(tmp_path, client)
+
+    with pytest.raises(ModelUnavailable, match='unsafe file names'):
+        service.get()
+    assert client.downloads == ['config.json']
+    assert not (tmp_path / 'escaped.txt').exists()
+    assert not (tmp_path / 'cache' / 'escaped.txt').exists()
+
+
+@pytest.mark.parametrize('version', ['../1.0.0', '..', 'a\\b', '/abs'])
+def test_s3_unsafe_version_is_rejected(tmp_path, s3, version):
+    with pytest.raises(ModelUnavailable, match='invalid model version'):
+        s3_service(tmp_path, s3, version=version).get()
+
+
+def test_s3_client_uses_its_own_session(monkeypatch):
+    import boto3
+
+    def shared_default(*args, **kwargs):
+        raise AssertionError('the shared default boto3 session must not be used')
+
+    monkeypatch.setattr(boto3, 'client', shared_default)
+    monkeypatch.setattr(boto3, 'resource', shared_default)
+
+    source = generator.S3BundleSource(ModelSettings(bucket=BUCKET, region=REGION))
+    assert source.client.meta.region_name == REGION
 
 
 def test_local_bundle_loads_once(tmp_path):

@@ -5,7 +5,7 @@ import os
 import tempfile
 
 # Libs
-import boto3
+import boto3.session
 import pandas as pd
 from botocore import exceptions
 from flask import current_app as app
@@ -22,7 +22,7 @@ def get_bucket():
     Must be called inside a Flask application context (reads AWS_REGION / AWS_BUCKET from current_app.config).
     """
     logger.info('Logging to AWS and accessing [s3] resource')
-    s3 = boto3.resource('s3', region_name=app.config['AWS_REGION'])
+    s3 = boto3.session.Session().resource('s3', region_name=app.config['AWS_REGION'])
 
     logger.info('Connecting to AWS bucket: {}'.format(app.config['AWS_BUCKET']))
     return s3.Bucket(app.config['AWS_BUCKET'])

@@ -57,7 +57,7 @@ MODEL_VERSION = os.environ.get('MODEL_VERSION') or None
 MODEL_CACHE_DIR = os.environ.get('MODEL_CACHE_DIR') or None
 # true: start loading the model when the app is created instead of on the first generation request
 MODEL_PRELOAD = os.environ.get('MODEL_PRELOAD', 'false')
-# onnxruntime intra op threads (default: the CPU count, at most 4)
+# onnxruntime intra op threads (default 1: Lambda at 2048 MB gets about 1.16 vCPU, see DEFAULT_THREADS)
 MODEL_THREADS = os.environ.get('MODEL_THREADS') or None
 # Seconds before a failed load is retried
 MODEL_RETRY_SECONDS = 300

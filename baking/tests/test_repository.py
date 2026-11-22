@@ -78,6 +78,18 @@ def test_create_tables_cli(aws, capsys):
 
 # Catalog
 
+def test_repository_uses_its_own_boto3_session(repo, monkeypatch):
+    import boto3
+
+    def shared_default(*args, **kwargs):
+        raise AssertionError('the shared default boto3 session must not be used')
+
+    monkeypatch.setattr(boto3, 'resource', shared_default)
+    monkeypatch.setattr(boto3, 'client', shared_default)
+
+    assert repo.list_artists() == []
+
+
 def test_empty_repository(repo):
     assert repo.list_artists() == []
     assert repo.list_genres() == []
