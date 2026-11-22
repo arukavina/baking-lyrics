@@ -10,9 +10,13 @@ Nothing is shared between tests, so they are order independent.
 import importlib
 
 # Libs
+import boto3
 import pytest
+from moto import mock_aws
 
 TESTING_CONFIG = 'config/testing.py'
+TABLE_PREFIX = 'baking-lyrics-test'
+REGION = 'us-east-1'
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +29,34 @@ def _hermetic_env(monkeypatch):
 
     monkeypatch.setattr(baking.main, 'load_dotenv', lambda *args, **kwargs: False)
     monkeypatch.delenv('APP_CONFIG_FILE', raising=False)
+
+
+@pytest.fixture
+def aws(monkeypatch):
+    """
+    Mocked AWS (moto) with fake credentials and every table of the schema created under TABLE_PREFIX.
+    No request ever leaves the process.
+    """
+    from baking.main.repository import schema
+
+    for name, value in {'AWS_ACCESS_KEY_ID': 'testing', 'AWS_SECRET_ACCESS_KEY': 'testing',
+                        'AWS_SECURITY_TOKEN': 'testing', 'AWS_SESSION_TOKEN': 'testing',
+                        'AWS_DEFAULT_REGION': REGION, 'AWS_REGION': REGION}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.delenv('AWS_PROFILE', raising=False)
+    monkeypatch.delenv('DYNAMODB_ENDPOINT_URL', raising=False)
+
+    with mock_aws():
+        schema.create_tables(boto3.client('dynamodb', region_name=REGION), prefix=TABLE_PREFIX)
+        yield
+
+
+@pytest.fixture
+def repo(aws):
+    """An empty DynamoDB repository on the mocked tables, without artist cache."""
+    from baking.main.repository import DynamoRepository
+
+    return DynamoRepository(prefix=TABLE_PREFIX, region=REGION, cache_seconds=0)
 
 
 @pytest.fixture
