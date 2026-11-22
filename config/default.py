@@ -1,39 +1,40 @@
 import os
+from pathlib import Path
+
+# Repository root: config/default.py -> repo
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _database_url():
+    url = os.environ.get('DATABASE_URL')
+    if url:
+        # Heroku style URLs are not accepted by SQLAlchemy >= 1.4
+        if url.startswith('postgres://'):
+            url = 'postgresql://' + url[len('postgres://'):]
+        return url
+    return 'sqlite:///' + (REPO_ROOT / 'baking' / 'resources' / 'flask_bakinglyrics_main.db').as_posix()
+
 
 # Flask settings
 DEBUG = False
 FLASK_DEBUG = False
+# Read from the environment (or a .env file). create_app falls back to a dev-only key in development/testing.
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
-# Flask-Restplus settings
-RESTPLUS_SWAGGER_UI_DOC_EXPANSION = 'list'
-RESTPLUS_VALIDATE = True
-RESTPLUS_MASK_SWAGGER = False
-RESTPLUS_ERROR_404_HELP = False
+# Flask-RESTX settings
+SWAGGER_UI_DOC_EXPANSION = 'list'
+RESTX_VALIDATE = True
+RESTX_MASK_SWAGGER = False
+RESTX_ERROR_404_HELP = False
 
 # SQLAlchemy settings
-SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///' + os.path.join('baking/resources', 'flask_bakinglyrics_main.db')
+SQLALCHEMY_DATABASE_URI = _database_url()
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # Log
 MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails
-LOG_DIR = r'logs/'
+LOG_DIR = r'logs/'  # Relative paths are resolved against the repository root
 LOG_LEVEL = 2
-
-# Current
-CURRENT_MODEL_LYRICS = r'LYRICS_LSTM_MODEL'
-CURRENT_MODEL_TITLE = r'TITLE_LSTM_MODEL'
-
-# Lyrics
-LYRICS_LSTM_MODEL = r'LyricsLSTMModel'
-NGRAMS_LSTM_MODEL = r'NGramsModel'
-
-# Lyrics - LSTM
-LYRICS_LSTM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
-LYRICS_LSTM_WEIGHTS_FILE_PATH = r'baking/resources/text_generator_dummy_weights.h5'
-LYRICS_LSTM_SEED_FILE_PATH = r'baking/resources/songdata.csv'
-
-# Lyrics - NGran
-LYRICS_NGRAM_MODEL_FILE_PATH = r'baking/resources/text_generator_dummy.yaml'
 
 # Title
 TITLE_LSTM_MODEL = r'TitleLSTMModel'
@@ -41,15 +42,3 @@ TITLE_LSTM_MODEL = r'TitleLSTMModel'
 # Title - LSTM
 TITLE_LSTM_MODEL_FILE_PATH = 'baking/resources/models/titler_v1'
 TITLE_LSTM_TOKENIZER_FILE_PATH = ""
-
-# OAuth
-OAUTH_CREDENTIALS = {
-    'facebook': {
-        'id': '***REMOVED***',
-        'secret': '***REMOVED***'
-    },
-    'twitter': {
-        'id': '***REMOVED***',
-        'secret': '***REMOVED***'
-    }
-}

@@ -2,12 +2,14 @@
 import logging
 import random
 
-# Libs
-from flask_restplus import Resource
 from flask import render_template
 
+# Libs
+from flask_restx import Resource
+from sqlalchemy.exc import NoResultFound
+
 # Own
-from baking.main import db, api
+from baking.main import api, db
 from baking.main.database.models import Song
 from baking.main.v1.serializers import song
 
@@ -61,6 +63,7 @@ def get_random_lyric():
     :return: Str, HTML Code
     """
     number_songs = db.session.query(Song.id).count()
-    logger.info("Getting one random song from {} pool.".format(number_songs))
-    random_song = Song.query.filter(Song.id == random.randint(1, number_songs)).one()
-    return random_song
+    logger.info(f"Getting one random song from {number_songs} pool.")
+    if number_songs == 0:
+        raise NoResultFound('No songs in the database')
+    return Song.query.order_by(Song.id).offset(random.randrange(number_songs)).limit(1).one()

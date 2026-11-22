@@ -5,29 +5,27 @@ Modeling Classes
 
 # Generic
 import abc
-import os
 import datetime
+import os
+import pickle
 
 # Libs
 import numpy as np
-import pickle
 
-# Keras Imports
-from keras_self_attention import SeqSelfAttention
-from keras.models import load_model
-
+# Keras / TensorFlow are optional (the `ml` extra). They are imported lazily inside the
+# functions that need them so that importing this module never pulls in TensorFlow.
 # Own
 from baking.main.util import log_utils
 
 logger = log_utils.get_logger('baking-api')
 
 
-class Singleton(object):
+class Singleton:
     _instance = None
 
     def __new__(cls, *dt, **mp):
         if not hasattr(cls, '_inst'):
-            cls._inst = super(Singleton, cls).__new__(cls)
+            cls._inst = super().__new__(cls)
         else:
             def init_pass(self):
                 pass
@@ -45,10 +43,10 @@ class Model(Singleton):
         :param model_file_path: path to model
         """
 
-        logger.debug('Checking if "model_file_path" is a valid path: {}'.format(model_file_path))
+        logger.debug(f'Checking if "model_file_path" is a valid path: {model_file_path}')
         if not os.path.exists(model_file_path):
-            logger.error("[{}] is not a valid path".format(model_file_path))
-            raise IOError()
+            logger.error(f"[{model_file_path}] is not a valid path")
+            raise OSError()
 
         self.model_file_path = model_file_path
         self.model = None
@@ -79,10 +77,10 @@ class NGramsModel(Model):
         :param seed_file_path:
         """
 
-        logger.info('Checking if "seed_file_path" is a valid path: {}'.format(seed_file_path))
+        logger.info(f'Checking if "seed_file_path" is a valid path: {seed_file_path}')
         if not os.path.exists(seed_file_path):
-            logger.error("[{}] is not a valid path".format(seed_file_path))
-            raise IOError()
+            logger.error(f"[{seed_file_path}] is not a valid path")
+            raise OSError()
 
         super().__init__(model_file_path)
 
@@ -103,8 +101,8 @@ class NGramsModel(Model):
         self.characters = sorted(list(set(self.text)))
         self.length = len(self.text)
 
-        logger.info("Characters V: {}".format(self.characters))
-        logger.info("Text length: {}".format(self.length))
+        logger.info(f"Characters V: {self.characters}")
+        logger.info(f"Text length: {self.length}")
 
         loaded_model = None
 
@@ -133,7 +131,7 @@ class NGramsModel(Model):
         # TODO: Complete this method.
         txt = ""
 
-        logger.info('Generated: {}'.format(txt))
+        logger.info(f'Generated: {txt}')
 
         return txt
 
@@ -169,7 +167,7 @@ class Glove(Model):
                 coefficients = np.asarray(values[1:], dtype='float32')
                 embeddings_index[word] = coefficients
 
-        logger.info('Found %s word vectors.' % len(embeddings_index))
+        logger.info(f'Found {len(embeddings_index)} word vectors.')
         logger.info('Models loaded from disk successfully')
 
         self.model = embeddings_index
@@ -210,22 +208,21 @@ class LyricsSkthModel(Model):
         """
 
         if not from_aws:
-            logger.debug('Checking if "generator_model_context_path" is a valid path: {}'.format(gen_model_context_path))
+            logger.debug(f'Checking if "generator_model_context_path" is a valid path: {gen_model_context_path}')
             if not os.path.exists(gen_model_context_path):
-                logger.error("[{}] is not a valid path".format(gen_model_context_path))
-                raise IOError()
+                logger.error(f"[{gen_model_context_path}] is not a valid path")
+                raise OSError()
 
-            logger.debug('Checking if "model_verse_emb_context_path" is a valid path: {}'.format(
-                model_verse_emb_context_path)
+            logger.debug(f'Checking if "model_verse_emb_context_path" is a valid path: {model_verse_emb_context_path}'
             )
             if not os.path.exists(model_verse_emb_context_path):
-                logger.error("[{}] is not a valid path".format(model_verse_emb_context_path))
-                raise IOError()
+                logger.error(f"[{model_verse_emb_context_path}] is not a valid path")
+                raise OSError()
 
-            logger.debug('Checking if "model_stv_encoder_path" is a valid path: {}'.format(model_stv_encoder_path))
+            logger.debug(f'Checking if "model_stv_encoder_path" is a valid path: {model_stv_encoder_path}')
             if not os.path.exists(model_stv_encoder_path):
-                logger.error("[{}] is not a valid path".format(model_stv_encoder_path))
-                raise IOError()
+                logger.error(f"[{model_stv_encoder_path}] is not a valid path")
+                raise OSError()
 
             super().__init__(decoder_model_path)
 
@@ -274,10 +271,11 @@ class LyricsSkthModel(Model):
             logger.info('Using cached model')
         else:
 
-            # Load YAML and create models
             logger.info("Loading models...")
 
             try:
+                from keras.models import load_model
+                from keras_self_attention import SeqSelfAttention
 
                 if self.from_aws:
 
@@ -309,7 +307,7 @@ class LyricsSkthModel(Model):
                     logger.debug("Loading STV Encoder from disk...")
                     self.model_stv_encoder = load_model(self.model_stv_encoder_path, compile=False)
 
-            except IOError as e:
+            except OSError as e:
                 logger.error("Is not possible to load Keras models")
                 raise e
             except ImportError as e:
@@ -411,7 +409,7 @@ class LyricsSkthModel(Model):
         verse_sequences[:, 0] = self.tokenizer.tokenizer.word_index['xseqstart']
         encoded_verses_matrix = np.zeros((num_generated, self.max_number_verses, self.latent_dim))
 
-        logger.debug('Processing {} loops'.format(max_length - 1))
+        logger.debug(f'Processing {max_length - 1} loops')
 
         # num_generated = 256,
         # max_length = 128,
@@ -501,170 +499,6 @@ class LyricsSkthModel(Model):
         pprint(vars(self))
 
 
-class LyricsLSTMModel(Model):
-
-    def __init__(self, model_file_path, weights_file_path, seed_file_path="../data/martin-fierro.txt"):
-        """
-        :param model_file_path:
-        :param weights_file_path:
-        :param seed_file_path:
-        """
-
-        logger.info('Checking if "weights_file_path" is a valid path: {}'.format(weights_file_path))
-        if not os.path.exists(weights_file_path):
-            logger.error("[{}] is not a valid path".format(weights_file_path))
-            raise IOError()
-
-        logger.info('Checking if "seed_file_path" is a valid path: {}'.format(seed_file_path))
-        if not os.path.exists(seed_file_path):
-            logger.error("[{}] is not a valid path".format(seed_file_path))
-            raise IOError()
-
-        super().__init__(model_file_path)
-
-        self.weights_file_path = weights_file_path
-        self.seed_file_path = seed_file_path
-
-        self.text = None
-        self.characters = None
-        self.length = None
-
-    def load_model(self):
-        """
-        :return:
-        """
-        from keras.models import model_from_yaml
-
-        self.text = (open(self.seed_file_path).read())
-        self.text = self.text.lower().strip()
-        self.characters = sorted(list(set(self.text)))
-        self.length = len(self.text)
-
-        logger.info("Characters V: {}".format(self.characters))
-        logger.info("Text length: {}".format(self.length))
-
-        # Load YAML and create models
-        logger.info("Loading models...")
-
-        try:
-            yaml_file = open(self.model_file_path, 'r')
-            loaded_model_yaml = yaml_file.read()
-            yaml_file.close()
-
-            loaded_model = model_from_yaml(loaded_model_yaml)
-        except IOError as e:
-            logger.error("Is not possible to load Keras models")
-            raise e
-        except ImportError as e:
-            logger.error("Missing dependency")
-            raise e
-
-        # Load weights into new models
-        logger.info("Loading weights into new models...")
-
-        try:
-            loaded_model.load_weights(self.weights_file_path)
-        except IOError as e:
-            logger.error("Is not possible to load weights into Keras models")
-            raise e
-        except ImportError as e:
-            logger.error("Missing dependency")
-            raise e
-
-        self.model = loaded_model
-        self.model_loaded = True
-
-        logger.info("Loaded models from disk")
-
-    def generate_sentence(self, lang='es', length=100, seed=69, *kargs):
-        """
-        :param lang:
-        :param length:
-        :param seed:
-        :param kargs:
-        :return:
-        """
-
-        from keras.utils import np_utils
-
-        if lang != 'es':
-            raise NotImplementedError
-
-        if not self.model_loaded:
-            logger.info("Model not loaded, loading it now...")
-            self.load_model()
-
-        _X = []
-        _Y = []
-
-        seq_length = 100
-
-        for i in range(0, self.length - seq_length, 1):
-            sequence = self.text[i:i + seq_length]
-            label = self.text[i + seq_length]
-            _X.append([self.char_to_n()[char] for char in sequence])
-            _Y.append(self.char_to_n()[label])
-
-            logger.debug(label, '->', _Y[i])
-
-        _X_modified = np.reshape(_X, (len(_X), seq_length, 1))
-        _X_modified = _X_modified / float(len(self.characters))
-        _Y_modified = np_utils.to_categorical(_Y)
-
-        # Generating Text
-
-        string_mapped = _X[seed]
-
-        logger.info(string_mapped)
-
-        full_string = [self.n_to_char()[value] for value in string_mapped]
-
-        g_txt = ''
-        for char in full_string:
-            g_txt = g_txt + char
-
-        logger.info('Base: \n{}'.format(g_txt))
-
-        full_string = []
-
-        # Generating N characters
-
-        for i in range(length):
-            x = np.reshape(string_mapped, (1, len(string_mapped), 1))
-
-            x = x / float(len(self.characters))
-
-            pred_index = int(np.argmax(self.model.predict(x, verbose=0)))
-
-            logger.debug(pred_index, '->', self.n_to_char()[pred_index])
-
-            # seq = [self.n_to_char()[value] for value in string_mapped]
-
-            full_string.append(self.n_to_char()[pred_index])
-
-            string_mapped.append(pred_index)
-            string_mapped = string_mapped[1:len(string_mapped)]
-
-        # Merging results
-        g_txt = ''
-        for char in full_string:
-            g_txt = g_txt + char
-
-        logger.info('Generated: {}'.format(g_txt))
-
-        return g_txt
-
-    def __str__(self):
-        from pprint import pprint
-        pprint(vars(self))
-
-    def n_to_char(self):
-        return {n: char for n, char in enumerate(self.characters)}
-
-    def char_to_n(self):
-        return {char: n for n, char in enumerate(self.characters)}
-
-
 class TitleLSTMModel(Model):
 
     def __init__(self, model_file_path):
@@ -678,13 +512,14 @@ class TitleLSTMModel(Model):
         """
         :return:
         """
-        from keras.models import load_model
         import pickle
+
+        from keras.models import load_model
 
         logger.info("Loading model...")
         try:
             loaded_model = load_model(self.model_file_path + '.h5', compile=False)
-        except IOError as e:
+        except OSError as e:
             logger.error("Is not possible to load Keras model")
             raise e
         except ImportError as e:
@@ -696,7 +531,7 @@ class TitleLSTMModel(Model):
             with open(self.model_file_path + '.tokenizer.pickle', 'rb') as handle:
                 tokenizer = pickle.load(handle)
 
-        except IOError as e:
+        except OSError as e:
             logger.error("Is not possible to load tokenizer")
             raise e
         except ImportError as e:
@@ -743,7 +578,7 @@ class TitleLSTMModel(Model):
             pred_sequence = np.zeros((1, max_output_sequence_length), dtype=int)
             output_sequence[0, 0] = start_token_value
 
-            for i in range(max_output_sequence_length):
+            for _i in range(max_output_sequence_length):
                 output_tokens = self.model.predict([input_sequence, output_sequence])
                 output_tokens = output_tokens + np.random.normal(size=output_tokens.shape) * temperature
                 pred_sequence[0,] = [np.argsort(output_tokens[0, ii])[(-1 - max(j - ii * 10, 0))]
@@ -840,20 +675,20 @@ class Tokenizer:
 
         if not from_aws:
             logger.debug(
-                'Checking if "artist_genre_tokenizer_path" is a valid path: {}'.format(artist_genre_tokenizer_path))
+                f'Checking if "artist_genre_tokenizer_path" is a valid path: {artist_genre_tokenizer_path}')
             if not os.path.exists(artist_genre_tokenizer_path):
-                logger.error("[{}] is not a valid path".format(artist_genre_tokenizer_path))
-                raise IOError()
+                logger.error(f"[{artist_genre_tokenizer_path}] is not a valid path")
+                raise OSError()
 
-            logger.debug('Checking if "tokenizer_path" is a valid path: {}'.format(tokenizer_path))
+            logger.debug(f'Checking if "tokenizer_path" is a valid path: {tokenizer_path}')
             if not os.path.exists(tokenizer_path):
-                logger.error("[{}] is not a valid path".format(tokenizer_path))
-                raise IOError()
+                logger.error(f"[{tokenizer_path}] is not a valid path")
+                raise OSError()
 
-            logger.debug('Checking if "embedded_matrix_path" is a valid path: {}'.format(embedded_matrix_path))
+            logger.debug(f'Checking if "embedded_matrix_path" is a valid path: {embedded_matrix_path}')
             if not os.path.exists(embedded_matrix_path):
-                logger.error("[{}] is not a valid path".format(embedded_matrix_path))
-                raise IOError()
+                logger.error(f"[{embedded_matrix_path}] is not a valid path")
+                raise OSError()
 
         self.model_name = model_name
         self.artist_genre_tokenizer_path = artist_genre_tokenizer_path
@@ -933,9 +768,12 @@ class Tokenizer:
             self._embedding_matrix = em['embedding_matrix']
 
             # Tokenizer
-            tmp_file = aws.read_s3_pickle_tmp(object_name=self.tokenizer_path)
-            with open(tmp_file.name, 'rb') as handle:
-                self._tokenizer = pickle.load(handle)
+            tmp_path = aws.read_s3_pickle_tmp(object_name=self.tokenizer_path)
+            try:
+                with open(tmp_path, 'rb') as handle:
+                    self._tokenizer = pickle.load(handle)
+            finally:
+                os.remove(tmp_path)
 
             self._reverse_word_map = dict({v: k for k, v in self.tokenizer.word_index.items()})
 
@@ -973,7 +811,7 @@ if __name__ == '__main__':
     log_utils.setup_logging('bl-api-mlAbl', timestamp, settings)
     logger = log_utils.get_logger('bl-api-mlAbl')
 
-    logger.info('PWD = {}'.format(os.getcwd()))
+    logger.info(f'PWD = {os.getcwd()}')
 
     model_name_str = 'lyrics_skth_v0_20_40_300_5000_100'
 

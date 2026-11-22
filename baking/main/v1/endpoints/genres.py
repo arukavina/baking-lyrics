@@ -4,9 +4,8 @@ import logging
 
 # Libs
 from flask import request
-from flask_restplus import Resource
-from flask_restplus import abort
-from sqlalchemy.orm.exc import NoResultFound
+from flask_restx import Resource, abort
+from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api

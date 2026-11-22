@@ -12,7 +12,7 @@ class FileSystemException(RuntimeError):
     """
     def __init__(self, arg):
         self.arg = arg
-        super.__init__(arg)
+        super().__init__(arg)
 
 
 def expand_paths(file_names, recursive=True):
@@ -57,10 +57,10 @@ def create_path(path):
                 try:
                     os.makedirs(k)
                 except OSError as error:
-                    print('Can\'t create path {}: {}'.format(k, error))
+                    print(f'Can\'t create path {k}: {error}')
     else:
         if not os.path.exists(path):
             try:
                 os.makedirs(path)
             except OSError as error:
-                print('Can\'t create path {}: {}'.format(path, error))
+                print(f'Can\'t create path {path}: {error}')

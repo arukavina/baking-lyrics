@@ -1,17 +1,17 @@
 # Generic
 import logging
+from datetime import datetime, timedelta
 
 # Libs
 from flask import request
-from flask_restplus import Resource
-from flask_restplus import abort
+from flask_restx import Resource, abort
 from sqlalchemy import func
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
 from baking.main.database.models import Artist
-from baking.main.v1.models.business import create_artist, update_artist, delete_artist
+from baking.main.v1.models.business import create_artist, delete_artist, update_artist
 from baking.main.v1.parsers import pagination_arguments
 from baking.main.v1.serializers import artist, page_of_artists
 
@@ -34,7 +34,7 @@ class ArtistsCollection(Resource):
         per_page = args.get('per_page', 10)
 
         artists_query = Artist.query
-        artists_page = artists_query.paginate(page, per_page, error_out=False)
+        artists_page = artists_query.paginate(page=page, per_page=per_page, error_out=False)
 
         return artists_page
 
@@ -110,7 +110,7 @@ class GetArtistByName(Resource):
             return artists
 
 
-@ns.route('/random/<number_of_artists>')
+@ns.route('/random/<int:number_of_artists>')
 @api.response(400, 'Number of artists between 6 and 20 is needed.')
 @api.response(404, 'Famous artist not found.')
 @api.response(404, 'Artist not found.')
@@ -122,7 +122,6 @@ class GetNRandomFamousArtists(Resource):
         Returns a a list of <number_of_artists> random famous artists.
         """
 
-        number_of_artists = int(number_of_artists)
         if number_of_artists < 6:
             abort(400, 'A minimum of 6 artists are to be retrieved.')
         if number_of_artists > 20:
@@ -159,14 +158,22 @@ class ArtistsArchiveCollection(Resource):
         page = args.get('page', 1)
         per_page = args.get('per_page', 10)
 
-        start_month = month if month else 1
-        end_month = month if month else 12
-        start_day = day if day else 1
-        end_day = day + 1 if day else 31
-        start_date = '{0:04d}-{1:02d}-{2:02d}'.format(year, start_month, start_day)
-        end_date = '{0:04d}-{1:02d}-{2:02d}'.format(year, end_month, end_day)
-        artists_query = Artist.query.filter(Artist.formation_date >= start_date).filter(Artist.formation_date <= end_date)
+        # Half-open interval [start_date, end_date)
+        try:
+            if day is not None:
+                start_date = datetime(year, month, day)
+                end_date = start_date + timedelta(days=1)
+            elif month is not None:
+                start_date = datetime(year, month, 1)
+                end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+            else:
+                start_date = datetime(year, 1, 1)
+                end_date = datetime(year + 1, 1, 1)
+        except ValueError:
+            abort(400, 'Invalid date.')
 
-        artists_page = artists_query.paginate(page, per_page, error_out=False)
+        artists_query = Artist.query.filter(Artist.formation_date >= start_date).filter(Artist.formation_date < end_date)
+
+        artists_page = artists_query.paginate(page=page, per_page=per_page, error_out=False)
 
         return artists_page

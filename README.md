@@ -15,10 +15,6 @@ The Baking-Lyrics **coding** band.
 
 [![Documentation Status](https://readthedocs.org/projects/baking-lyrics/badge/?version=latest)](https://baking-lyrics.readthedocs.io/en/latest/?badge=latest)
 
-[![Build Status](https://travis-ci.org/arukavina/baking-lyrics.svg?branch=master)](https://travis-ci.org/arukavina/baking-lyrics)
-
-[![codecov](https://codecov.io/gh/arukavina/baking-lyrics/branch/master/graph/badge.svg)](https://codecov.io/gh/arukavina/baking-lyrics)
-
 ___
 
 # Intro
@@ -36,18 +32,59 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 
 # How-to
 
+## Prerequisites
+
 - Clone the repo.
-- Create a python venv in your SO
-- Source it: `source bar/foo/venv/your-venv/bin/activate`
-- Run `pip install -r requirements/dev.txt`
-- Request the current models to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
-- Request the songsdata.csv to [Andrei Rukavina](mailto:rukavina.andrei@gmailcom)
-- Put the file under: `/api/resources/models/` and `/api/resources/` respectively 
-- Add the following ENV variable into your favourite OS: `APP_CONFIG_FILE=/Users/<your name>/GitHub/Baking-Lyrics/config/development.py`
-- Add the following ENV variable into your favourite OS: `PYTHONPATH=/Users/arukavina/github/baking-lyrics`
-- Run `cd /api`
-- Run `refresh_database.py` 
-- Run `manage.py run`
+- Install [uv](https://docs.astral.sh/uv/getting-started/installation/) (it installs Python 3.12 for you if needed).
+  - Windows PowerShell: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+  - macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+## Install dependencies
+
+- Run `uv sync` from the repo root to create `.venv` with the API and dev tools.
+- For the TensorFlow models run `uv sync --extra ml` instead (the trained model files are also required, see below).
+
+## Models and data
+
+- Request the current models and the `lyrics.csv` dataset from [Andrei Rukavina](mailto:rukavina.andrei@gmail.com).
+- Put the model files under `baking/resources/models/` and `lyrics.csv` under `baking/resources/`.
+- No dataset yet? Seed with the small sample instead: set `DATA_FILE_PATH=baking/resources/lyrics_4_tests.csv` before running the seed command.
+
+## Environment variables
+
+- `APP_CONFIG_FILE` (required): path to the config file, for example `config/development.py`.
+- `SECRET_KEY`: required with `config/production.py`; development and testing fall back to a dev only key.
+- `DATABASE_URL` (optional): overrides the default SQLite database (`baking/resources/flask_bakinglyrics_main.db`). `postgres://` URLs are accepted.
+
+These can also go in a `.env` file at the repo root (it is gitignored).
+
+Windows PowerShell:
+
+```powershell
+$env:APP_CONFIG_FILE = 'config/development.py'
+$env:SECRET_KEY = 'change-me'                     # optional
+$env:DATABASE_URL = 'sqlite:///baking-lyrics.db'  # optional
+```
+
+macOS/Linux:
+
+```bash
+export APP_CONFIG_FILE=config/development.py
+export SECRET_KEY=change-me                      # optional
+export DATABASE_URL=sqlite:///baking-lyrics.db   # optional
+```
+
+## Run
+
+- Apply migrations: `uv run flask --app baking.manage db upgrade`
+- Seed the database: `uv run python -m baking.refresh_database` (run it after the migrations; it wipes and reloads the data)
+- Start the API: `uv run flask --app baking.manage run --port 9090`
+- Open the Swagger UI at http://localhost:9090/api/v1/
+
+## Test and lint
+
+- Tests: `uv run pytest` (no environment variables needed, tests build their own app and database)
+- Lint: `uv run ruff check .`
 
 # Models
 
@@ -153,24 +190,8 @@ _There is always something that breaks_
 
 ## TensorFlow
 
-If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to upgrade the [requirements file](requirements/dev.txt) accordingly. 
+If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to adjust the `ml` extra in [pyproject.toml](pyproject.toml) accordingly. 
 
-## Environment Variables
+## Production
 
-### If using **flask run**
-`flask run`
-1) PROD: PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/production.py');FLASK_ENV=production;FLASK_RUN_PORT=8003
-2) TEST: PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/testing.py');FLASK_ENV=testing;FLASK_RUN_PORT=8001
-3) DEV:PYTHONUNBUFFERED=1;FLASK_APP=baking.main:create_app(r'config/development.py');FLASK_RUN_PORT=8000;FLASK_DEBUG=0;FLASK_ENV=development. 
-Feel free to enable debug mode in DEV
- 
-### If using **manage run**
-`python manage.py run`
-1) TEST: PYTHONUNBUFFERED=1;APP_CONFIG_FILE=config/testing.py
-2) DEV: PYTHONUNBUFFERED=1;APP_CONFIG_FILE=config/development.py 
-Feel free to enable debug mode in DEV
-
-### To run Tests: 
-`python manage.py test`
-
-* PYTHONUNBUFFERED=1;APP_CONFIG_FILE=config/testing.py
+Serve the app with `gunicorn baking.manage:app --timeout 600` (Linux; the long timeout leaves room for loading the models at startup), with `APP_CONFIG_FILE=config/production.py`, `SECRET_KEY` and `DATABASE_URL` set. Run `flask --app baking.manage db upgrade` on each release.

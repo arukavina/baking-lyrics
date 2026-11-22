@@ -1,8 +1,25 @@
+# Generic
+from datetime import datetime
+
+from flask_restx import abort
+
 # Own
 from baking.main import db
 from baking.main.database.models import Artist, Genre, Song
 
-from iso8601 import parse_date
+
+def parse_date(value):
+    """
+    Parses an ISO 8601 date/datetime string (replacement for iso8601.parse_date).
+    :param value: str or None
+    :return: datetime or None when value is empty
+    """
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        abort(400, f'Invalid date: {value!r}. Use ISO 8601, e.g. 2000-01-31.')
 
 
 def create_song(data):
@@ -33,7 +50,8 @@ def update_song(song_id, data):
     song = Song.query.filter(Song.id == song_id).one()
     song.title = data.get('title')
     song.lyrics = data.get('lyrics')
-    song.publication_date = data.get('publication_date')
+    if 'publication_date' in data:
+        song.publication_date = parse_date(data.get('publication_date'))
     song.artist_id = data.get('artist_id')
     song.artist = Artist.query.filter(Artist.id == song.artist_id).one()
 
@@ -76,7 +94,8 @@ def update_artist(artist_id, data):
 
     artist.name = data.get('name')
     artist.clean_name = data.get('clean_name')
-    artist.cover = data.get('cover')
+    if 'cover' in data:
+        artist.cover = data.get('cover')
     artist.country = data.get('country')
 
     genre_id = data.get('genre_id')

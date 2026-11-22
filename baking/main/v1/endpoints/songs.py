@@ -4,14 +4,13 @@ import logging
 
 # Libs
 from flask import request
-from flask_restplus import Resource
-from flask_restplus import abort
-from sqlalchemy.orm.exc import NoResultFound
+from flask_restx import Resource, abort
+from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
 from baking.main.database.models import Song
-from baking.main.v1.models.business import create_song, update_song, delete_song
+from baking.main.v1.models.business import create_song, delete_song, update_song
 from baking.main.v1.serializers import song
 
 logger = logging.getLogger('baking-api')
@@ -49,7 +48,7 @@ class SongItem(Resource):
         """
         Returns a song with a list of bands.
         """
-        print('Getting song')
+        logger.debug('Getting song %s', song_id)
         try:
             return Song.query.filter(Song.id == song_id).one()
         except NoResultFound:

@@ -3,10 +3,14 @@ Script:    Module to set-up logging structure
 """
 
 # Generic
+import importlib.metadata
 import logging
 import logging.handlers
-import os
 import sys
+from pathlib import Path
+
+# Repository root: baking/main/util/log_utils.py -> repo
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 _INT_TO_LEVEL = {
     5: logging.CRITICAL,
@@ -20,38 +24,40 @@ _INT_TO_LEVEL = {
 
 def setup_logging(name, time_stamp, args):
     """
-    Sets up the logger for the classification.
+    Sets up the named logger with a file handler and a stdout handler.
+    Calling it again (e.g. on repeated create_app calls) replaces the handlers previously added here,
+    so no duplicated output is produced.
     :param name: Logger instance name
     :param time_stamp: The timestamp to apply to the file
-    :param args: a dictionary with the arguments which are used by the classifier.
-    This dict will be modified, removing items which shouldn't be sent to the classification function.
+    :param args: a mapping (dict or Flask config) holding LOG_DIR and LOG_LEVEL. It is not modified.
     :return: None
     """
 
     named_level = logging.DEBUG
 
-    log_dir = args['LOG_DIR']
-    del args['LOG_DIR']
+    log_dir = Path(args.get('LOG_DIR', 'logs'))
+    if not log_dir.is_absolute():
+        log_dir = _REPO_ROOT / log_dir
 
-    level = args['LOG_LEVEL']
-    del args['LOG_LEVEL']
+    level = args.get('LOG_LEVEL', 1)
 
     try:
         named_level = _INT_TO_LEVEL[level]
-    except IndexError:
+    except KeyError:
         print('[WARNING] - Verbosity non-existent, using DEBUG')
 
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Logging to {} named: {}".format(log_dir, name))
+    print(f"Logging to {log_dir} named: {name}")
 
-    log_file = '{}_{}.log'.format(name, time_stamp)
+    log_file = f'{name}_{time_stamp}.log'
 
     # Logger
     my_log = logging.getLogger(name)
     my_log.propagate = False
-    my_log.handlers = []
+    for handler in list(my_log.handlers):
+        my_log.removeHandler(handler)
+        handler.close()
     my_log.setLevel(named_level)
 
     formatter = logging.Formatter('%(asctime)s [%(threadName)s] [%(levelname)s]'
@@ -59,9 +65,9 @@ def setup_logging(name, time_stamp, args):
                                   datefmt='%m/%d/%Y %H:%M:%S')
 
     # Handlers
-    fh_path = os.path.join(log_dir, log_file)
+    fh_path = log_dir / log_file
 
-    file_handler = logging.FileHandler(fh_path)
+    file_handler = logging.FileHandler(fh_path, encoding='utf-8')
     file_handler.setFormatter(formatter)
 
     std_handler = logging.StreamHandler(sys.stdout)
@@ -86,9 +92,8 @@ def print_imports_versions(logger):
     :param logger: Logging object to be used
     :return: None
     """
-    for name, module in sorted(sys.modules.items()):
-        if hasattr(module, '__version__'):
-            logger.debug('{0} :: {1}'.format(name, module.__version__))
+    for dist in sorted(importlib.metadata.distributions(), key=lambda d: d.metadata['Name'].lower()):
+        logger.debug(f"{dist.metadata['Name']} :: {dist.version}")
 
 
 def an_print(logger, string=''):

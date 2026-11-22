@@ -1,74 +1,31 @@
-# Generic
-import os
-import logging
-import unittest
-import coverage
+"""
+WSGI entry point and Flask CLI target.
 
-# Libs
-from flask_migrate import Migrate, MigrateCommand
-from flask_script import Manager
+The app is built from the config file named by the APP_CONFIG_FILE environment variable
+(or a `.env` file at the repository root), e.g. APP_CONFIG_FILE=config/development.py.
+
+Usage:
+    gunicorn baking.manage:app
+    flask --app baking.manage run --port 9090      # development server (the historical port is 9090)
+    flask --app baking.manage db upgrade           # Flask-Migrate commands (db init/migrate/upgrade/...)
+    python -m baking.manage                        # same as `flask run` on 0.0.0.0:9090
+
+Tests are run with pytest (`uv run pytest`).
+"""
 
 # Own
-from baking.main import create_app, db
+from baking.main import create_app
 
-
-logger = logging.getLogger('baking-api')
 app = create_app()
-app.app_context().push()
-
-manager = Manager(app)
-migrate = Migrate(app, db)
-manager.add_command('db', MigrateCommand)
 
 
-@manager.command
-def test():
-    """Runs the unit tests without coverage."""
-    tests = unittest.TestLoader().discover('tests', pattern='test*.py')
-    result = unittest.TextTestRunner(verbosity=2).run(tests)
-    if result.wasSuccessful():
-        return 0
-    return 1
-
-
-@manager.command
-def cov():
-    """Runs the unit tests with coverage."""
-    cov = coverage.Coverage(
-        branch=True,
-        include='baking/main/*',
-        omit=[
-            'baking/resources/*.py',
-            'baking/static/*.py',
-            'baking/main/migrations/*.py'
-        ]
-    )
-    cov.start()
-    tests = unittest.TestLoader().discover('tests')
-    unittest.TextTestRunner(verbosity=2).run(tests)
-    cov.stop()
-    cov.save()
-
-    print('Coverage Summary:')
-    cov.report()
-
-    basedir = os.path.abspath(os.path.dirname(__file__))
-    covdir = os.path.join(basedir, 'coverage')
-    cov.html_report(directory=covdir)
-
-    cov.erase()
-
-
-@manager.command
-def run():
-
-    # print(app.url_map)
-
-    app.run(host='0.0.0.0',
-            port=9090,
+def run(host='0.0.0.0', port=9090):
+    """Runs the development server (replacement for the old Flask-Script `run` command)."""
+    app.run(host=host,
+            port=port,
             debug=app.config['DEBUG'],
             use_reloader=False)
 
 
 if __name__ == '__main__':
-    manager.run()
+    run()

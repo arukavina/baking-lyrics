@@ -56,10 +56,12 @@ coverage.xml
 
 # Django stuff:
 *.log
+logs/
 local_settings.py
 
 # Flask stuff:
 api/instance/
+instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -73,9 +75,6 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-
-# pyenv
-.python-version
 
 # celery beat schedule file
 celerybeat-schedule
@@ -114,6 +113,7 @@ lyrics.csv
 *.zip
 
 .pytest_cache/
+.ruff_cache/
 /api/static/node_modules/
 docs/source/_static/
 docs/source/_templates/
