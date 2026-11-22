@@ -43,7 +43,7 @@ addopts = "-ra"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-extend-exclude = ["docs", "migrations/versions"]
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
@@ -54,6 +54,4 @@ source = ["baking"]
 omit = [
     "baking/resources/*",
     "baking/static/*",
-    "migrations/*",
-    "baking/main/migrations/*",
 ]
