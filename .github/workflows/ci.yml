@@ -1,9 +1,12 @@
 name: CI
 
+# Pull requests run it directly; pushes to master run it from deploy.yml before deploying.
 on:
-  push:
-    branches: [master]
   pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   test:

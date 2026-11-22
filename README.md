@@ -230,6 +230,57 @@ _There is always something that breaks_
 
 If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to adjust the `ml` extra in [pyproject.toml](pyproject.toml) accordingly. 
 
-## Production
+# AWS deployment
 
-Serve the app with `gunicorn baking.manage:app --timeout 600` (Linux; the long timeout leaves room for loading the models at startup), with `APP_CONFIG_FILE=config/production.py`, `SECRET_KEY` and `DATABASE_URL` set. Run `flask --app baking.manage db upgrade` on each release.
+## Architecture
+
+- The frontend calls the API directly (with CORS) at the Lambda Function URL (auth type `NONE`).
+- The function `baking-lyrics-backend` (`us-east-1`) runs the container image built from the [Dockerfile](Dockerfile) on x86_64.
+- Inside the image the [AWS Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) extension forwards each request to gunicorn on port 8080, which serves the unchanged Flask app.
+- Data lives in the DynamoDB tables `baking-lyrics-*` (on demand capacity).
+- Trained models and the lyrics dataset live in the S3 bucket `bakinglyrics` (models under `models/`).
+- Images are stored in the ECR repository `baking-lyrics-backend`, which keeps the last 10 images.
+
+## Deploy workflow
+
+- [ci.yml](.github/workflows/ci.yml) runs lint and tests on every pull request.
+- [deploy.yml](.github/workflows/deploy.yml) runs on every push to `master` (and manually with "Run workflow"): it runs CI, builds the image for `linux/amd64`, pushes it to ECR tagged with the commit sha and `latest`, updates the Lambda function code, waits for the update and smoke tests the API.
+- The smoke test calls `GET /api/v1/general/ping` and checks that `GET /api/v1/general/version` reports the deployed commit.
+- The deploy job runs in the GitHub environment `production` and assumes an AWS role through GitHub OIDC, so no AWS keys are stored in GitHub.
+
+The `production` environment needs these secrets:
+
+| Secret | Value |
+|---|---|
+| `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role the workflow assumes (`baking-lyrics-github-deploy`) |
+| `AWS_REGION` | `us-east-1` |
+| `ECR_REPOSITORY` | `baking-lyrics-backend` |
+| `LAMBDA_FUNCTION_NAME` | `baking-lyrics-backend` |
+| `API_BASE_URL` | the Function URL, for example `https://<url-id>.lambda-url.us-east-1.on.aws` (no trailing slash) |
+
+## Lambda configuration
+
+These environment variables are set on the function:
+
+- `APP_CONFIG_FILE`: `config/production.py` (also the image default).
+- `SECRET_KEY`: a long random value, required by the production config.
+- `ALLOWED_ORIGINS`: comma separated origins allowed by CORS, for example `https://bakinglyrics.com,https://www.bakinglyrics.com,https://baking-lyrics-web.vercel.app`.
+- `BAKING_TABLE_PREFIX`: prefix of the DynamoDB tables, `baking-lyrics`.
+
+`BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` are not set on the function: the workflow bakes them into the image as build arguments, so `GET /api/v1/general/version` reports the deployed commit.
+
+The function uses 1024 MB of memory and a 30 second timeout; its execution role grants DynamoDB access to `baking-lyrics-*`, read access to `s3://bakinglyrics` and CloudWatch Logs.
+
+## Run the container locally
+
+Build and run the same image the workflow deploys (Docker, or `nerdctl` with Rancher Desktop):
+
+```bash
+docker build -t baking-lyrics-backend --build-arg BAKING_COMMIT_SHA=$(git rev-parse HEAD) --build-arg BAKING_COMMIT_DATE=$(git log -1 --format=%cI) .
+docker run --rm -p 8080:8080 -e SECRET_KEY=change-me baking-lyrics-backend
+curl http://localhost:8080/api/v1/general/ping
+```
+
+- Outside Lambda the adapter extension stays idle and gunicorn answers directly on port 8080.
+- Pass the data settings the API needs with `-e` (for example `-e BAKING_TABLE_PREFIX=baking-lyrics-dev -e AWS_REGION=us-east-1` plus AWS credentials).
+- Logs go to stdout; on AWS they are in the CloudWatch log group `/aws/lambda/baking-lyrics-backend`.
