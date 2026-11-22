@@ -18,10 +18,6 @@ migrations
 baking/tests
 baking/resources/*.db
 baking/resources/lyrics.csv
-.claude
-.impeccable
-.playwright-mcp
-CLAUDE.md
 Dockerfile
 .dockerignore
 # ml/: only the modules serving needs (no torch code, data, notebooks, tests, runs or bundles)
