@@ -21,7 +21,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import NoResultFound
 
 # Own
-from baking.main.util import log_utils
+from baking.main.util import build_info, log_utils
 
 # Repository root (the folder holding `baking/`, `config/` and `migrations/`).
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -177,6 +177,13 @@ def create_app(app_config_file=None, test_config=None):
 
     # Bcrypt
     flask_bcrypt.init_app(app)
+
+    # Build info, resolved once and served by /general/version
+    build = build_info.resolve_build_info(REPO_ROOT)
+    app.config['BUILD_VERSION'] = build['version']
+    app.config['BUILD_COMMIT'] = build['commit']
+    app.config['BUILD_COMMIT_DATE'] = build['date']
+    logger.info('Build: version=%s commit=%s date=%s', build['version'], build['commit'], build['date'])
 
     from baking.main import v1
 

@@ -2,7 +2,7 @@
 import logging
 import random
 
-from flask import render_template
+from flask import current_app, render_template
 
 # Libs
 from flask_restx import Resource
@@ -11,7 +11,7 @@ from sqlalchemy.exc import NoResultFound
 # Own
 from baking.main import api, db
 from baking.main.database.models import Song
-from baking.main.v1.serializers import song
+from baking.main.v1.serializers import build_version, song
 
 logger = logging.getLogger('baking-api')
 
@@ -55,6 +55,21 @@ class Ping(Resource):
         Returns pong to ping.
         """
         return "pong!"
+
+
+@ns.route('/version')
+class Version(Resource):
+
+    @api.marshal_with(build_version)
+    def get(self):
+        """
+        Returns the API version and the commit (sha and ISO 8601 date) it was built from.
+        """
+        return {
+            'version': current_app.config.get('BUILD_VERSION'),
+            'commit': current_app.config.get('BUILD_COMMIT'),
+            'date': current_app.config.get('BUILD_COMMIT_DATE'),
+        }
 
 
 def get_random_lyric():

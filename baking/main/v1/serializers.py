@@ -63,3 +63,9 @@ artificial_song = api.model('ArtificialSong', {
     'user': fields.Nested(user),
     'base_artist': fields.Nested(artist),
 })
+
+build_version = api.model('Build version', {
+    'version': fields.String(description='Project version from pyproject.toml, null when unknown'),
+    'commit': fields.String(description='Full git commit sha of the build, null when unknown'),
+    'date': fields.String(description='ISO 8601 commit date of the build, null when unknown'),
+})
