@@ -19,6 +19,7 @@ dependencies = [
     "gunicorn>=23.0; sys_platform != 'win32'",
     "psycopg2-binary>=2.9",
     "python-dotenv>=1.0",
+    "flask-cors>=6.0",
 ]
 
 [project.optional-dependencies]

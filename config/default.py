@@ -15,11 +15,19 @@ def _database_url():
     return 'sqlite:///' + (REPO_ROOT / 'baking' / 'resources' / 'flask_bakinglyrics_main.db').as_posix()
 
 
+def _allowed_origins():
+    raw = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000')
+    return [origin.strip() for origin in raw.split(',') if origin.strip()]
+
+
 # Flask settings
 DEBUG = False
 FLASK_DEBUG = False
 # Read from the environment (or a .env file). create_app falls back to a dev-only key in development/testing.
 SECRET_KEY = os.environ.get('SECRET_KEY')
+
+# CORS: browser origins allowed to call /api/* (comma-separated ALLOWED_ORIGINS environment variable)
+ALLOWED_ORIGINS = _allowed_origins()
 
 # Flask-RESTX settings
 SWAGGER_UI_DOC_EXPANSION = 'list'

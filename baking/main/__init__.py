@@ -12,6 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask
 from flask_bcrypt import Bcrypt
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_migrate import Migrate
@@ -176,6 +177,10 @@ def create_app(app_config_file=None, test_config=None):
 
     # Bcrypt
     flask_bcrypt.init_app(app)
+
+    # CORS, only for the API and only from the configured origins
+    CORS(app, resources={r'/api/*': {'origins': app.config['ALLOWED_ORIGINS']}},
+         methods=['GET', 'POST', 'OPTIONS'], allow_headers=['Content-Type'])
 
     # Build info, resolved once and served by /general/version
     build = build_info.resolve_build_info(REPO_ROOT)
