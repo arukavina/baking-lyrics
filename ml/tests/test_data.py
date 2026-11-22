@@ -157,3 +157,17 @@ def test_write_outputs_catalog_schema(tmp_path):
     assert json.loads((tmp_path / "artists.json").read_text(encoding="utf-8")) == meta
     assert len(info["data_sha256"]) == 64
     assert len(pd.read_parquet(tmp_path / "songs.parquet")) == len(df)
+
+
+def test_songdata_is_mapped_to_the_kaggle_schema(tmp_path):
+    from ml.data import SONGDATA_INDEX_OFFSET, read_songdata_csv, slugify
+
+    path = tmp_path / "songdata.csv"
+    path.write_text('artist,song,link,text\nGuns N\' Roses,"Sweet Child O\' Mine",/x,"She\'s got a smile  \nit seems to me  \n"\n',
+                    encoding="utf-8")
+    df = read_songdata_csv(path)
+    assert list(df.columns) == COLUMNS
+    row = df.iloc[0]
+    assert row["artist"] == "guns-n-roses" and row["song"] == "sweet-child-o-mine"
+    assert row["genre"] == "Other" and pd.isna(row["year"]) and row["index"] == SONGDATA_INDEX_OFFSET
+    assert slugify("Beyonc" + chr(0xE9) + " Knowles") == "beyonce-knowles"

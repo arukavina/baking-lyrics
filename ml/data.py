@@ -10,9 +10,14 @@ Output directory (default `ml/data/processed`):
 - `artists.json`: artist slug -> {id, display_name, genre, genre_id, songs} plus the genre ids;
 - `prep_meta.json`: the preparation settings, counts and a content hash of the prepared data.
 
+Prefer the raw Kaggle `lyrics.csv`: it keeps line breaks and punctuation. The flattened "*_cleaned_lyrics.csv"
+derivatives lost both; for them line breaks are restored with a capitalisation heuristic (see `restore_lines`).
+The Kaggle "55000+ Song Lyrics" `songdata.csv` can be merged with `--extra-songdata`.
+
 Usage:
     python -m ml.data --kaggle --out ml/data/processed
     python -m ml.data --csv path/to/lyrics.csv --out ml/data/processed
+    python -m ml.data --csv lyrics.csv --extra-songdata songdata.csv --out ml/data/processed
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ import json
 import re
 import sys
 import time
+import unicodedata
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -87,6 +93,36 @@ def download_kaggle(dest_dir: str | Path | None = None, handle: str = KAGGLE_HAN
     if not candidates:
         raise FileNotFoundError(f"no CSV found in {root}")
     return max(candidates, key=lambda p: p.stat().st_size)
+
+
+def slugify(name: object) -> str:
+    """MetroLyrics style slug: "ABBA" -> "abba", "Guns N' Roses" -> "guns-n-roses"."""
+    text = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", text.replace("'", "")).strip("-")
+
+
+SONGDATA_INDEX_OFFSET = 10_000_000
+
+
+def read_songdata_csv(path: str | Path) -> pd.DataFrame:
+    """Read the Kaggle "55000+ Song Lyrics" file (`artist,song,link,text`) into the MetroLyrics schema.
+
+    Artists and titles become slugs, genre is "Other" and year is empty (that dataset has neither). Indexes are
+    offset by 10,000,000 so they never collide with MetroLyrics indexes. Songs also present in MetroLyrics are
+    removed later by the lyrics dedupe.
+    """
+    df = pd.read_csv(path, dtype="string", keep_default_na=False, na_values=[""])
+    missing = [c for c in ("artist", "song", "text") if c not in df.columns]
+    if missing:
+        raise ValueError(f"{path}: missing columns {missing}; found {list(df.columns)}")
+    return pd.DataFrame({
+        "index": np.arange(len(df)) + SONGDATA_INDEX_OFFSET,
+        "song": [slugify(s) for s in df["song"]],
+        "year": pd.array([pd.NA] * len(df), dtype="Int64"),
+        "artist": [slugify(a) for a in df["artist"]],
+        "genre": "Other",
+        "lyrics": df["text"],
+    })[COLUMNS]
 
 
 def read_lyrics_csv(path: str | Path) -> pd.DataFrame:
@@ -331,6 +367,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--csv", help="local lyrics CSV (or zip) with the Kaggle schema")
     src.add_argument("--kaggle", action="store_true", help=f"download {KAGGLE_HANDLE} with kagglehub")
+    p.add_argument("--extra-songdata", help="optional Kaggle '55000+ Song Lyrics' songdata.csv to merge in")
     p.add_argument("--download-dir", help="where kagglehub stores the dataset (default: its cache)")
     p.add_argument("--out", default="ml/data/processed")
     d = PrepConfig()
@@ -357,13 +394,18 @@ def main(argv: Iterable[str] | None = None) -> int:
     path = download_kaggle(args.download_dir) if args.kaggle else Path(args.csv)
     print(f"reading {path}")
     raw = read_lyrics_csv(path)
+    if args.extra_songdata:
+        extra = read_songdata_csv(args.extra_songdata)
+        print(f"merging {len(extra)} rows from {args.extra_songdata} (genre Other, no year)")
+        raw = pd.concat([raw, extra], ignore_index=True)
     with_newlines = float(raw["lyrics"].dropna().str.contains("\n", regex=False).mean())
     print(f"{len(raw)} rows; {with_newlines:.1%} of lyrics contain line breaks")
     if with_newlines < 0.01 and cfg.line_mode == "auto":
         print("lyrics look flattened (no line breaks): using the capitalisation heuristic to restore lines; "
               "prefer the raw Kaggle download, which keeps the original line breaks")
     df, meta = prepare(raw, cfg)
-    info = write_outputs(df, meta, args.out, cfg, source=str(path.name))
+    source = path.name + (f" + {Path(args.extra_songdata).name}" if args.extra_songdata else "")
+    info = write_outputs(df, meta, args.out, cfg, source=source)
     print(json.dumps({k: info[k] for k in ("songs", "artists", "genres", "splits", "data_sha256")}, indent=1))
     print(f"wrote {args.out} in {time.time() - t0:.1f}s")
     return 0
