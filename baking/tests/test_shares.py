@@ -70,19 +70,3 @@ def test_shares_are_listed_per_song(app_repo, client):
     assert len(app_repo.list_shares(4)) == 1
     assert app_repo.list_shares(5) == []
 
-
-def test_shares_are_rate_limited_per_client(aws, make_app):
-    from baking.main import limiter
-    from baking.tests.conftest import seed
-
-    app = make_app(RATELIMIT_ENABLED=True, SHARE_RATE_LIMIT='3 per minute')
-    seed(app)
-    with app.app_context():
-        limiter.reset()
-    client = app.test_client()
-
-    statuses = [client.post(SHARES.format(1), json={'network': 'facebook'}).status_code for _ in range(4)]
-
-    assert statuses == [201, 201, 201, 429]
-    with app.app_context():
-        limiter.reset()

@@ -35,10 +35,8 @@ DYNAMODB_ENDPOINT_URL = os.environ.get('DYNAMODB_ENDPOINT_URL') or None
 # Seconds the artist list is kept in memory by each process
 CATALOG_CACHE_SECONDS = 60
 
-# Rate limiting (Flask-Limiter). In memory per process by default; set RATELIMIT_STORAGE_URI
-# (for example redis://...) when running several workers.
-RATELIMIT_STORAGE_URI = os.environ.get('RATELIMIT_STORAGE_URI', 'memory://')
-RATELIMIT_HEADERS_ENABLED = True
+# Rate limiting per client, stored in the {BAKING_TABLE_PREFIX}-ratelimit table (see baking/main/ratelimit.py)
+RATELIMIT_ENABLED = True
 SHARE_RATE_LIMIT = '10 per minute;100 per day'
 
 # Log

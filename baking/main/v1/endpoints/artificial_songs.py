@@ -8,11 +8,12 @@ import time
 # Libs
 import numpy as np
 from flask import current_app as app
+from flask import request
 from flask_restx import Resource, abort
 
 # Own
-from baking.main import api, limiter
-from baking.main.repository import get_repository
+from baking.main import api, ratelimit
+from baking.main.repository import get_repository, schema
 from baking.main.v1.models import machine_learning as ml
 from baking.main.v1.serializers import SHARE_NETWORKS, artificial_song, share_request, share_result
 
@@ -28,6 +29,18 @@ def abort_if_ml_unavailable():
     """
     if not app.extensions.get('ml_available', False):
         abort(503, 'ML models are not loaded')
+
+
+def abort_if_rate_limited(route, limits):
+    """
+    Answers 429 when the client exhausted one of `limits` (e.g. "10 per minute;100 per day") on `route`.
+    Disabled with RATELIMIT_ENABLED = False.
+    """
+    if not app.config.get('RATELIMIT_ENABLED', True):
+        return
+    table = get_repository().table(schema.RATELIMIT)
+    if ratelimit.is_rate_limited(table, ratelimit.client_ip(request), route, ratelimit.parse_limits(limits)):
+        abort(429, 'Too many shares from this address, try again later.')
 
 
 def artist_and_sample_song(artist_id):
@@ -140,7 +153,6 @@ class ArtificialSongItem(Resource):
 @ns.response(429, 'Too many shares from this address, try again later.')
 class ArtificialSongShares(Resource):
     # Shares feed a public KPI, so limit how fast one client can add them
-    decorators = [limiter.limit(lambda: app.config['SHARE_RATE_LIMIT'])]
 
     @ns.expect(share_request, validate=True)
     @ns.marshal_with(share_result, code=201)
@@ -148,6 +160,8 @@ class ArtificialSongShares(Resource):
         """
         Records a share of a generated song on a social network and returns its total shares.
         """
+        abort_if_rate_limited('shares', app.config['SHARE_RATE_LIMIT'])
+
         network = (api.payload.get('network') or '').strip().lower()
         if network not in SHARE_NETWORKS:
             abort(400, 'Unknown network. Expected one of: {}.'.format(', '.join(SHARE_NETWORKS)))

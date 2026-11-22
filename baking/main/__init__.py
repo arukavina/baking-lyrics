@@ -12,8 +12,6 @@ from dotenv import load_dotenv
 from flask import Flask
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_restx import Api
 
 # Own
@@ -29,9 +27,6 @@ flask_bcrypt = Bcrypt()
 
 api = Api(version='1.0', title='Baking-Lyrics API',
           description='A funny lyrics generator Flask RESTX powered API')
-
-# No global limits: only endpoints that write public counters are limited (see SHARE_RATE_LIMIT)
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 _logger = logging.getLogger('baking-api')
 
@@ -158,8 +153,6 @@ def create_app(app_config_file=None, test_config=None):
     app.extensions[EXTENSION_KEY] = repository_from_config(app.config)
     logger.info('Using DynamoDB tables %s-* in %s%s', app.config['BAKING_TABLE_PREFIX'], app.config['AWS_REGION'],
                 f" at {app.config['DYNAMODB_ENDPOINT_URL']}" if app.config.get('DYNAMODB_ENDPOINT_URL') else '')
-
-    limiter.init_app(app)
 
     # Bcrypt
     flask_bcrypt.init_app(app)
