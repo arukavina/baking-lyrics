@@ -107,3 +107,23 @@ def test_train_resume_and_eval(tiny_run):
     resumed = train(data_dir, run_dir, build_config("smoke", None, []), overrides=["epochs=2"], log=lambda *_: None)
     assert resumed["epochs"] == 2
     assert len((run_dir / "metrics.jsonl").read_text(encoding="utf-8").strip().splitlines()) == 2
+
+
+def test_load_glove_from_txt_and_zip(tmp_path):
+    import zipfile
+
+    from ml.tokenizer import Tokenizer
+    from ml.train import load_glove
+
+    tok = Tokenizer.build(["love night baby"], min_freq=1)
+    text = "love 0.1 0.2 0.3\nnight 1 2 3\nunrelated 9 9 9\nbroken 1 2\n"
+    (tmp_path / "glove.6B.3d.txt").write_text(text, encoding="utf-8")
+    with zipfile.ZipFile(tmp_path / "glove.6B.zip", "w") as zf:
+        zf.writestr("glove.6B.3d.txt", text)
+    for path in (tmp_path / "glove.6B.3d.txt", tmp_path / "glove.6B.zip"):
+        vectors, found = load_glove(path, tok, 3, log=lambda *_: None)
+        assert int(found.sum()) == 2 and not found[tok.stoi["baby"]]
+        assert torch.allclose(vectors[tok.stoi["night"]], torch.tensor([1.0, 2.0, 3.0]))
+    model = LyricsLSTM(ModelConfig(**{**TINY, "vocab_size": len(tok), "emb_dim": 3, "hidden": 4}))
+    model.load_pretrained_embeddings(vectors, found)
+    assert torch.allclose(model.embed.weight[tok.stoi["love"]], torch.tensor([0.1, 0.2, 0.3]))
