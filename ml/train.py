@@ -62,8 +62,8 @@ class TrainConfig:
 
 
 PRESETS: dict[str, dict] = {
-    "smoke": dict(vocab_size=4000, min_freq=2, max_len=192, batch_size=16, epochs=2, lr=3e-3, warmup_steps=20,
-                  max_steps_per_epoch=60, log_every=20, eval_max_batches=10, sample_words=40, save_every_minutes=0,
+    "smoke": dict(vocab_size=4000, min_freq=2, max_len=192, batch_size=16, epochs=6, lr=3e-3, warmup_steps=50,
+                  max_steps_per_epoch=200, log_every=50, eval_max_batches=20, sample_words=40, save_every_minutes=0,
                   model=dict(emb_dim=48, artist_dim=8, genre_dim=4, hidden=96, layers=3, weight_drop=0.2)),
     "colab-t4": dict(vocab_size=30000, min_freq=3, max_len=400, batch_size=32, epochs=12, lr=1e-3,
                      warmup_steps=1000, patience=3, max_minutes=0, save_every_minutes=15),

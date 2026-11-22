@@ -99,16 +99,25 @@ class LyricsLSTM(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
+        # Xavier input weights and orthogonal recurrent weights per gate: with PyTorch's default init a 3 layer
+        # stack sat on a unigram plateau for ~450 steps in the smoke run; this keeps early gradients larger.
         nn.init.uniform_(self.embed.weight, -0.1, 0.1)
         nn.init.normal_(self.artist_embed.weight, std=0.1)
         nn.init.normal_(self.genre_embed.weight, std=0.1)
         nn.init.zeros_(self.decoder.bias)
         for rnn in self.rnns:
             for name, p in rnn.named_parameters():
-                if "bias" in name:
+                if name.startswith("weight_ih"):
+                    for gate in p.data.chunk(4, dim=0):
+                        nn.init.xavier_uniform_(gate)
+                elif name.startswith("weight_hh"):
+                    for gate in p.data.chunk(4, dim=0):
+                        nn.init.orthogonal_(gate)
+                elif "bias" in name:
                     nn.init.zeros_(p)
-                    n = p.numel() // 4
-                    p.data[n:2 * n] = 1.0  # forget gate bias (PyTorch gate order i, f, g, o)
+                    if name.startswith("bias_ih"):
+                        n = p.numel() // 4
+                        p.data[n:2 * n] = 1.0  # forget gate bias 1 (PyTorch gate order i, f, g, o)
 
     def load_pretrained_embeddings(self, vectors: torch.Tensor, mask: torch.Tensor) -> None:
         """Copy pretrained rows (e.g. GloVe) where `mask` is True."""
