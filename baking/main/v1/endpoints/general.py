@@ -6,14 +6,17 @@ from flask import current_app, render_template
 
 # Libs
 from flask_restx import Resource
+from sqlalchemy import func, select
 from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api, db
-from baking.main.database.models import Song
-from baking.main.v1.serializers import build_version, song
+from baking.main.database.models import ArtificialSong, Artist, Share, Song
+from baking.main.v1.serializers import build_version, general_stats, song
 
 logger = logging.getLogger('baking-api')
+
+TOP_ARTISTS_LIMIT = 3
 
 ns = api.namespace('general', description='General API operations')
 
@@ -70,6 +73,46 @@ class Version(Resource):
             'commit': current_app.config.get('BUILD_COMMIT'),
             'date': current_app.config.get('BUILD_COMMIT_DATE'),
         }
+
+
+@ns.route('/stats')
+class Stats(Resource):
+
+    @api.marshal_with(general_stats)
+    def get(self):
+        """
+        Returns artist, generated song and share counts, plus the top 3 artists by generated songs.
+        """
+        return get_stats()
+
+
+def get_stats():
+    """
+    Totals in one query and the top artists in another (grouped, no per artist queries).
+    :return: dict matching the general_stats model
+    """
+    artists, songs_generated, shares = db.session.execute(select(
+        select(func.count(Artist.id)).scalar_subquery(),
+        select(func.count(ArtificialSong.id)).scalar_subquery(),
+        select(func.count(Share.id)).scalar_subquery(),
+    )).one()
+
+    name = func.coalesce(func.nullif(Artist.clean_name, ''), Artist.name)
+    generated = func.count(ArtificialSong.id)
+    top_artists = db.session.execute(
+        select(Artist.id, name.label('name'), generated.label('songs_generated'))
+        .join(ArtificialSong, ArtificialSong.base_artist_id == Artist.id)
+        .group_by(Artist.id, Artist.clean_name, Artist.name)
+        .order_by(generated.desc(), name, Artist.id)
+        .limit(TOP_ARTISTS_LIMIT)
+    ).all()
+
+    return {
+        'artists': artists,
+        'songs_generated': songs_generated,
+        'shares': shares,
+        'top_artists': [row._asdict() for row in top_artists],
+    }
 
 
 def get_random_lyric():

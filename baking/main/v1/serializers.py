@@ -83,3 +83,17 @@ share_result = api.model('Share result', {
     'network': fields.String(description='Network the song was shared to, lowercase'),
     'shares': fields.Integer(description='Total number of shares of the artificial song'),
 })
+
+top_artist = api.model('Top artist', {
+    'id': fields.Integer(description='The unique identifier of the artist'),
+    'name': fields.String(description='Artist clean name, falls back to the raw name'),
+    'songs_generated': fields.Integer(description='Number of songs generated in the style of the artist'),
+})
+
+general_stats = api.model('General stats', {
+    'artists': fields.Integer(description='Number of artists'),
+    'songs_generated': fields.Integer(description='Number of generated songs'),
+    'shares': fields.Integer(description='Number of shares of generated songs'),
+    'top_artists': fields.List(fields.Nested(top_artist),
+                               description='Up to 3 artists with the most generated songs, ties broken by name'),
+})
