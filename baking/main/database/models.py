@@ -1,7 +1,15 @@
 # Generic
-from datetime import datetime
+from datetime import UTC, datetime
 
 from baking.main import db
+
+
+def utcnow():
+    """
+    Current UTC time as a naive datetime (the columns are timezone-naive DateTime, as before).
+    Replacement for the deprecated datetime.utcnow().
+    """
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class Genre(db.Model):
@@ -12,7 +20,7 @@ class Genre(db.Model):
         self.name = name
 
     def __repr__(self):
-        return '<Genre %r>' % self.name
+        return f'<Genre {self.name!r}>'
 
 
 class Artist(db.Model):
@@ -23,7 +31,7 @@ class Artist(db.Model):
     formation_date = db.Column(db.DateTime)
     country = db.Column(db.String(120))
     genre_id = db.Column(db.Integer, db.ForeignKey(Genre.id))
-    genre = db.relationship(Genre, backref=db.backref('artist', lazy='dynamic'))
+    genre = db.relationship(Genre, backref=db.backref('artists', lazy='dynamic'))
 
     def __init__(self, name, clean_name, country, genre, formation_date=None, cover=False):
         self.name = name
@@ -31,7 +39,7 @@ class Artist(db.Model):
         self.country = country
 
         if formation_date is None:
-            formation_date = datetime.utcnow()
+            formation_date = utcnow()
 
         self.cover = cover
         self.formation_date = formation_date
@@ -39,7 +47,7 @@ class Artist(db.Model):
         self.genre = genre
 
     def __repr__(self):
-        return '<Artist %r %r>' % (self.clean_name, self.name)
+        return f'<Artist {self.clean_name!r} {self.name!r}>'
 
 
 class Song(db.Model):
@@ -56,11 +64,11 @@ class Song(db.Model):
         self.artist = artist
 
         if publication_date is None:
-            publication_date = datetime.utcnow()
+            publication_date = utcnow()
         self.publication_date = publication_date
 
     def __repr__(self):
-        return '<Song %r>' % self.title
+        return f'<Song {self.title!r}>'
 
     def as_dict(self):
         return {
@@ -84,11 +92,11 @@ class ArtificialTitle(db.Model):
         self.title = title
 
         if creation_date is None:
-            creation_date = datetime.utcnow()
+            creation_date = utcnow()
         self.creation_date = creation_date
 
     def __repr__(self):
-        return '<ArtificialTitle %r>' % self.title
+        return f'<ArtificialTitle {self.title!r}>'
 
 
 class ArtificialSong(db.Model):
@@ -110,8 +118,8 @@ class ArtificialSong(db.Model):
         self.base_artist = base_artist
 
         if creation_date is None:
-            creation_date = datetime.utcnow()
+            creation_date = utcnow()
         self.creation_date = creation_date
 
     def __repr__(self):
-        return '<ArtificialSong named: %r>' % self.artificial_title.title
+        return f'<ArtificialSong named: {self.artificial_title.title!r}>'

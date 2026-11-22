@@ -1,44 +1,60 @@
+"""
+/api/v1/general endpoints.
+"""
+
 # Generic
-import unittest
+from pathlib import Path
 
 # Libs
-from flask_testing import TestCase
-
-# Own
-from baking.manage import app
-#from flask import current_app as app
-#from baking.main import create_app
+import pytest
 
 
-class TestGeneral(TestCase):
+def test_random(client):
+    response = client.get('/api/v1/general/random')
 
-    def create_app(self):
-        app.config.from_object('config.testing')
-        return app
-
-
-class TestEndPoints(TestGeneral):
-
-    def test_random(self):
-        print('test_random')
-        response = self.client.get("/api/v1/general/random")
-        art = response.json["artist"][0]
-        print("Response (test_random): " + art["name"])
-        self.assertIsNotNone(response)
-
-    def test_ping_get(self):
-        print('test_ping_get')
-        response = self.client.get("/api/v1/general/ping")
-        print("Response (test_ping_get): " + str(response.json))
-        self.assertEqual(str(response.json), "pong!")
-
-    def test_ping_post(self):
-        print('test_ping_post')
-        client = self.client
-        response = client.post("/api/v1/general/ping")
-        print("Response (test_ping_post): " + str(response.json))
-        self.assertEqual(str(response.json), "pong!")
+    assert response.status_code == 200
+    assert 1 <= response.json['id'] <= 6
+    assert response.json['title']
+    assert response.json['lyrics']
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_ping_get(client):
+    response = client.get('/api/v1/general/ping')
+
+    assert response.status_code == 200
+    assert response.json == 'pong!'
+
+
+def test_ping_post(client):
+    response = client.post('/api/v1/general/ping')
+
+    assert response.status_code == 200
+    assert response.json == 'pong!'
+
+
+def test_unknown_route_is_404(client):
+    assert client.get('/api/v1/does-not-exist').status_code == 404
+
+
+def test_swagger_spec_is_served(client):
+    response = client.get('/api/v1/swagger.json')
+
+    assert response.status_code == 200
+    assert '/artists/' in response.json['paths']
+
+
+def test_index(app, client):
+    if not (Path(app.template_folder) / 'index.html').is_file():
+        pytest.skip('Frontend not built: baking/static/index.html is missing')
+
+    assert client.get('/api/v1/general/').status_code == 200
+
+
+def test_random_after_deleting_songs(client):
+    for song_id in range(1, 6):
+        assert client.delete(f'/api/v1/songs/{song_id}').status_code == 204
+
+    response = client.get('/api/v1/general/random')
+
+    assert response.status_code == 200
+    assert response.json['id'] == 6

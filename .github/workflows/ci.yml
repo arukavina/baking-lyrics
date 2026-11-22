@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      APP_CONFIG_FILE: config/testing.py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      - run: uv run ruff check .
+      - run: uv run pytest --cov=baking

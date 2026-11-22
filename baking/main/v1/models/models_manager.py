@@ -1,5 +1,6 @@
-from baking.main.v1.models.machine_learning import TitleLSTMModel, LyricsSkthModel
 from flask import current_app
+
+from baking.main.v1.models.machine_learning import TitleLSTMModel
 
 
 class ModelsManager:
@@ -19,14 +20,11 @@ class ModelsManager:
         """
         if key not in self.models_cache:
             if key == 'titles':
-                model = TitleLSTMModel(current_app.config["TITLE_LSTM_MODEL_FILE_PATH"])
-                model.load_model()
-                self.models_cache[key] = model
-            if key == 'lyrics-sentences':
-                model = LyricsSkthModel(current_app.config["TITLE_LSTM_MODEL_FILE_PATH"])
+                from baking.main import resolve_path
+
+                model = TitleLSTMModel(str(resolve_path(current_app.config["TITLE_LSTM_MODEL_FILE_PATH"])))
                 model.load_model()
                 self.models_cache[key] = model
             else:
-                raise ValueError
+                raise ValueError(f'Unknown model key: {key}')
         return self.models_cache[key]
-

@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 
 # Generic
-import tempfile
 import os
+import tempfile
+
+import boto3
+import numpy as np
 
 # Libs
 import pandas as pd
-import numpy as np
-
-import boto3
 from botocore import exceptions
 from flask import current_app as app
 
@@ -17,22 +17,17 @@ from baking.main.util import log_utils
 
 logger = log_utils.get_logger('baking-api')
 
-# print('Current wd={}'.format(os.getcwd()))
-#
-# from flask import Flask
-#
-# app = Flask("baking-lyrics",
-#             static_folder="baking/static/dist",
-#             template_folder="baking/static")
-#
-# app.config.from_object('config.default')
-# app.config.from_object('config.production')
 
-logger.info('Logging to AWS and accessing [s3] resource')
-s3 = boto3.resource('s3', region_name=app.config['AWS_REGION'])
+def get_bucket():
+    """
+    Lazily creates the boto3 S3 resource and returns the configured bucket.
+    Must be called inside a Flask application context (reads AWS_REGION / AWS_BUCKET from current_app.config).
+    """
+    logger.info('Logging to AWS and accessing [s3] resource')
+    s3 = boto3.resource('s3', region_name=app.config['AWS_REGION'])
 
-logger.info('Connecting to AWS bucket: {}'.format(app.config['AWS_BUCKET']))
-bucket = s3.Bucket(app.config['AWS_BUCKET'])
+    logger.info('Connecting to AWS bucket: {}'.format(app.config['AWS_BUCKET']))
+    return s3.Bucket(app.config['AWS_BUCKET'])
 
 
 def read_bucket_object(object_name):
@@ -42,63 +37,59 @@ def read_bucket_object(object_name):
     :return: s3_object a tmp
     """
 
-    s3_object = bucket.Object(object_name)
-    return s3_object
+    return get_bucket().Object(object_name)
+
+
+def _download_to_tmpfile(object_name):
+    """
+    Downloads an S3 object to a named temporary file and returns its path.
+    The file is created with delete=False so it can be reopened on Windows; callers must remove it.
+    """
+    if object_name is None:
+        raise AttributeError('object_name argument can not be None.')
+
+    s3_object = read_bucket_object(object_name)
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+
+    try:
+        with tmp as f:
+            s3_object.download_fileobj(f)
+    except exceptions.ClientError as e:
+        os.remove(tmp.name)
+        logger.debug(e.response)
+        if e.response['Error']['Code'] == '404':
+            logger.error(f'File does not exist: {object_name}')
+        else:
+            logger.error(f'Unexpected error: {e}')
+            raise RuntimeError(e) from e
+        raise FileNotFoundError(e) from e
+    except Exception:
+        os.remove(tmp.name)
+        raise
+
+    return tmp.name
 
 
 def read_s3_csv_as_tmpfile(object_name=None):
 
-    if object_name is None:
-        raise AttributeError('object_name argument can not be None.')
-
-    s3_object = read_bucket_object(object_name)
-    tmp = tempfile.NamedTemporaryFile()
-
-    with open(tmp.name, 'wb') as f:
-        try:
-            s3_object.download_fileobj(f)
-        except exceptions.ClientError as e:
-            logger.debug(e.response)
-            if e.response['Error']['Code'] == '404':
-                logger.error('File does not exist: {}'.format(object_name))
-            else:
-                logger.error('Unexpected error: %s' % e)
-                raise RuntimeError(e)
-            raise FileNotFoundError(e)
-
-        csv_object = pd.read_csv(tmp.name)
-
-    return csv_object
+    tmp_name = _download_to_tmpfile(object_name)
+    try:
+        return pd.read_csv(tmp_name)
+    finally:
+        os.remove(tmp_name)
 
 
 def read_s3_h5_as_tmpfile(object_name=None, custom_objects=None):
 
-    if object_name is None:
-        raise AttributeError('object_name argument can not be None.')
-
-    s3_object = read_bucket_object(object_name)
-    tmp = tempfile.NamedTemporaryFile()
-
     from keras.models import load_model
 
-    with open(tmp.name, 'wb') as f:
-        try:
-            s3_object.download_fileobj(f)
-        except exceptions.ClientError as e:
-            logger.debug(e.response)
-            if e.response['Error']['Code'] == '404':
-                logger.error('File does not exist: {}'.format(object_name))
-            else:
-                logger.error('Unexpected error: %s' % e)
-                raise RuntimeError(e)
-            raise FileNotFoundError(e)
-
-    if custom_objects is not None:
-        s3_model = load_model(tmp.name, compile=False, custom_objects=custom_objects)
-    else:
-        s3_model = load_model(tmp.name, compile=False)
-
-    return s3_model
+    tmp_name = _download_to_tmpfile(object_name)
+    try:
+        if custom_objects is not None:
+            return load_model(tmp_name, compile=False, custom_objects=custom_objects)
+        return load_model(tmp_name, compile=False)
+    finally:
+        os.remove(tmp_name)
 
 
 def read_s3_pickle_as_tmpfile(object_name, allow_pickle=False):
@@ -113,54 +104,26 @@ def read_s3_pickle_as_tmpfile(object_name, allow_pickle=False):
     :return: np pickle
     """
 
-    if object_name is None:
-        raise AttributeError('object_name argument can not be None.')
-
-    s3_object = read_bucket_object(object_name)
-    tmp = tempfile.NamedTemporaryFile()
-
-    with open(tmp.name, 'wb') as f:
-        try:
-            s3_object.download_fileobj(f)
-        except exceptions.ClientError as e:
-            logger.debug(e.response)
-            if e.response['Error']['Code'] == '404':
-                logger.error('File does not exist: {}'.format(object_name))
-            else:
-                logger.error('Unexpected error: %s' % e)
-                raise RuntimeError(e)
-            raise FileNotFoundError(e)
-
-        pickle_object = np.load(tmp.name, allow_pickle=allow_pickle)
-
-    return pickle_object
+    tmp_name = _download_to_tmpfile(object_name)
+    try:
+        with np.load(tmp_name, allow_pickle=allow_pickle) as npz:
+            # Materialise the arrays so the file can be removed
+            return {key: npz[key] for key in npz.files}
+    finally:
+        os.remove(tmp_name)
 
 
 def read_s3_pickle_tmp(object_name):
-    if object_name is None:
-        raise AttributeError('object_name argument can not be None.')
-
-    s3_object = read_bucket_object(object_name)
-    tmp = tempfile.NamedTemporaryFile()
-
-    with open(tmp.name, 'wb') as f:
-        try:
-            s3_object.download_fileobj(f)
-        except exceptions.ClientError as e:
-            logger.debug(e.response)
-            if e.response['Error']['Code'] == '404':
-                logger.error('File does not exist: {}'.format(object_name))
-            else:
-                logger.error('Unexpected error: %s' % e)
-                raise RuntimeError(e)
-            raise FileNotFoundError(e)
-
-    return tmp
+    """
+    Downloads an S3 object and returns the path of the local temporary copy.
+    The caller is responsible for removing it (os.remove) once done.
+    """
+    return _download_to_tmpfile(object_name)
 
 
 if __name__ == '__main__':
 
-    logger.info('PWD = {}'.format(os.getcwd()))
+    logger.info(f'PWD = {os.getcwd()}')
 
     print('Reading CSV')
     df = read_s3_csv_as_tmpfile('resources/songdata_4_tests.csv')
@@ -184,3 +147,4 @@ if __name__ == '__main__':
     print('Reading Tokenizer')
     _tokenizer = read_s3_pickle_tmp('resources/models/lyrics_skth_v0_20_40_300_5000_100.tokenizer.pickle')
     print(_tokenizer)
+    os.remove(_tokenizer)

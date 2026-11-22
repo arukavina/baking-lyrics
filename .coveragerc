@@ -1,6 +1,0 @@
-[run]
-source = baking
-omit=[baking/resources/*.py,
-      baking/static/*.py,
-      baking/main/migrations/*.py
-      ]

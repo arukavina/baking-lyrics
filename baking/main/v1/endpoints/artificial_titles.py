@@ -1,16 +1,16 @@
 # Generic
 import logging
-from datetime import datetime
 
 # Libs
-from flask_restplus import Resource, abort
-from sqlalchemy.orm.exc import NoResultFound
+from flask import current_app
+from flask_restx import Resource, abort
+from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api, db
-from baking.main.v1.serializers import artificial_title
+from baking.main.database.models import ArtificialSong, ArtificialTitle, utcnow
 from baking.main.v1.models.models_manager import ModelsManager
-from baking.main.database.models import ArtificialTitle, ArtificialSong
+from baking.main.v1.serializers import artificial_title
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('artificial_titles', description='Operations related to artificially generated titles')
@@ -31,6 +31,7 @@ class ArtificialTitleCollection(Resource):
 @ns.route('/generate/<lang>/song/<int:song_id>/')
 @ns.response(404, 'Artificial song not found.')
 @ns.response(500, 'Internal server error.')
+@ns.response(503, 'ML models are not loaded.')
 class ArtificialTitleItem(Resource):
 
     @ns.marshal_with(artificial_title)
@@ -41,15 +42,18 @@ class ArtificialTitleItem(Resource):
         if lang != 'en':
             abort(400, 'Artificial Titles can only be generated in english')
 
-        model = ModelsManager().get_model('titles')
-
         try:
             lyrics_text = ArtificialSong.query.filter(ArtificialSong.id == song_id).one().lyrics
+
+            if not current_app.extensions.get('ml_available', False):
+                abort(503, 'ML models are not loaded')
+
+            model = ModelsManager().get_model('titles')
             title_text = model.generate_sentence(input_text=lyrics_text)
 
             at = ArtificialTitle(
                 title=title_text,
-                creation_date=datetime.utcnow()
+                creation_date=utcnow()
             )
 
             db.session.add(at)
