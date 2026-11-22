@@ -36,11 +36,13 @@ Each song is one sequence `<bos> lyrics <title> title <eos>`, so the same model 
 
 Vocabulary: the 30,000 most frequent words of the training split (minimum count 3), lowercase, punctuation as separate tokens, `<line>` for a line break and `<verse>` for a blank line.
 
+Initialisation: word embeddings normal with std 0.3 (about the scale of GloVe 6B vectors, which replace the rows they cover), Xavier input weights and orthogonal recurrent weights per gate, forget gate bias 1; with the smaller AWD-LSTM default embedding init the tied 3 layer model stayed at unigram perplexity for over 1,000 steps.
+
 Optimiser: AdamW with gradient clipping at 1.0, linear warmup then cosine decay, mixed precision on CUDA (bf16 on L4, A100 and RTX 30 or newer, fp16 with loss scaling on T4).
 
 Decoding: temperature, top-k and nucleus sampling, a repetition penalty, at most two identical words in a row, `<unk>` never sampled, a word budget that ends on a line break, and a title sampled after `<title>` with a bonus for words from the lyrics.
 
-About 25 M parameters with the full vocabulary; `model.onnx` is about 100 MB in float32.
+About 25 M parameters with the full vocabulary; `model.onnx` is 99 MB in float32.
 
 ## Data
 
@@ -125,6 +127,10 @@ These are estimates from the model size (about 150 MFLOP per training token) and
 
 Data preparation takes 2 to 5 minutes and export about 1 minute on any of them.
 
+Measured on a 14 core Windows laptop CPU: preparing the raw `lyrics.csv` (20 artist subset) took 131 s, the `smoke` preset trained 6 epochs on 3,000 songs in 146 s (validation perplexity 277 to 172, test 171), export took 12 s.
+
+Measured serving cost of the full size model (random weights, onnxruntime 1.32 on that CPU): `model.onnx` 99 MB, 0.2 s to load, 7.5 ms per token on one thread (3 ms with all threads), about 1.4 s for 150 words on one thread.
+
 ## Knobs
 
 | Setting | Where | Effect |
@@ -153,6 +159,8 @@ When resuming, the saved settings are used and only the `--set` values given on 
 `torch.cuda.is_available()` is False after `uv sync`: reinstall the CUDA wheel as shown above and use `uv run --no-sync`.
 
 Kaggle `401` or `403`: the token is missing or expired; create a new one and set `KAGGLE_API_TOKEN` (or the legacy `KAGGLE_USERNAME` and `KAGGLE_KEY`).
+
+Perplexity sits near the unigram level (a few hundred) for the first few hundred steps: expected for a deep LSTM; it should fall clearly within the first epoch, and if it does not, check that GloVe loaded (the log prints the coverage) and that `model.emb_init_std` was not lowered.
 
 Training perplexity drops but validation rises: overfitting; raise the dropouts or `--max-songs-per-artist`, or rely on early stopping.
 
