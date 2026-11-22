@@ -19,7 +19,7 @@ from datetime import UTC, date, datetime
 
 # Libs
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 # Own
@@ -84,6 +84,7 @@ class DynamoRepository(Repository):
         self._resource = None
         self._tables = {}
         self._artists = None
+        self._retired = frozenset()
         self._artists_loaded_at = 0.0
 
     # Plumbing
@@ -242,8 +243,9 @@ class DynamoRepository(Repository):
     def _artist_index(self):
         expired = time.monotonic() - self._artists_loaded_at >= self.cache_seconds
         if self._artists is None or expired:
-            artists = [self._artist(item) for item in self._entities(schema.CATALOG, 'ARTIST')]
-            self._artists = {artist['id']: artist for artist in artists}
+            items = self._entities(schema.CATALOG, 'ARTIST')
+            self._retired = frozenset(_int(item['id']) for item in items if item.get('retired'))
+            self._artists = {artist['id']: artist for artist in map(self._artist, items)}
             self._artists_loaded_at = time.monotonic()
         return self._artists
 
@@ -251,7 +253,8 @@ class DynamoRepository(Repository):
         self._artists = None
 
     def list_artists(self):
-        return list(self._artist_index().values())
+        index = self._artist_index()
+        return [artist for artist_id, artist in index.items() if artist_id not in self._retired]
 
     def get_artist(self, artist_id):
         return self._artist_index().get(artist_id)
@@ -325,7 +328,20 @@ class DynamoRepository(Repository):
 
     # Catalog writes
 
-    def save_catalog(self, genres=(), artists=(), songs=()):
+    def catalog_keys(self):
+        projections = {'GENRE': 'id, #n', 'ARTIST': 'id, #n', 'SONG': 'id, #n, artist_id'}
+        attributes = {'GENRE': 'name', 'ARTIST': 'name', 'SONG': 'title'}
+        items = {entity: self._entities(schema.CATALOG, entity, ProjectionExpression=projection,
+                                        ExpressionAttributeNames={'#n': attributes[entity]})
+                 for entity, projection in projections.items()}
+        return {
+            'genres': [{'id': _int(item['id']), 'name': item.get('name')} for item in items['GENRE']],
+            'artists': [{'id': _int(item['id']), 'name': item.get('name')} for item in items['ARTIST']],
+            'songs': [{'id': _int(item['id']), 'title': item.get('title'),
+                       'artist_id': _int(item.get('artist_id'), None)} for item in items['SONG']],
+        }
+
+    def save_catalog(self, genres=(), artists=(), songs=(), totals=None):
         genres, artists, songs = list(genres), list(artists), list(songs)
         genre_names = {genre['id']: genre.get('name') for genre in genres}
         with self.table(schema.CATALOG).batch_writer(overwrite_by_pkeys=['pk']) as batch:
@@ -338,30 +354,52 @@ class DynamoRepository(Repository):
         for sequence, records in (('genre', genres), ('artist', artists), ('song', songs)):
             if records:
                 self._raise_sequence(sequence, max(record['id'] for record in records))
-        self._refresh_catalog_totals()
+        self._set_catalog_totals(totals)
         self.invalidate_cache()
 
-    def prune_catalog(self, genre_ids, artist_ids, song_ids):
+    def generated_artist_ids(self):
+        """Ids of the artists that generated songs were made for (from the per artist counters)."""
+        items = self._query_all(self.table(schema.COUNTERS), KeyConditionExpression=Key('pk').eq(ARTIST_GENERATED))
+        return {_int(item.get('artist_id'), None) for item in items if _int(item.get('songs_generated')) > 0}
+
+    def prune_catalog(self, genre_ids, artist_ids, song_ids, totals=None):
         keep = {'GENRE': set(genre_ids), 'ARTIST': set(artist_ids), 'SONG': set(song_ids)}
+        referenced = self.generated_artist_ids()
+        retire = []
         deleted = 0
         with self.table(schema.CATALOG).batch_writer() as batch:
             for entity, ids in keep.items():
                 for item in self._entities(schema.CATALOG, entity, ProjectionExpression='pk, id'):
-                    if _int(item['id']) not in ids:
-                        batch.delete_item(Key={'pk': item['pk']})
-                        deleted += 1
-        self._refresh_catalog_totals()
+                    item_id = _int(item['id'])
+                    if item_id in ids:
+                        continue
+                    if entity == 'ARTIST' and item_id in referenced:
+                        retire.append(item['pk'])
+                        continue
+                    batch.delete_item(Key={'pk': item['pk']})
+                    deleted += 1
+        for pk in retire:
+            # Off the artist lists and the front page, still readable as the base artist of its generated songs
+            self.table(schema.CATALOG).update_item(Key={'pk': pk}, UpdateExpression='SET retired = :t, cover = :f',
+                                                   ExpressionAttributeValues={':t': True, ':f': False})
+        self._set_catalog_totals(totals)
         self.invalidate_cache()
         return deleted
 
-    def _refresh_catalog_totals(self):
-        catalog = self.table(schema.CATALOG)
-        totals = {entity: self._count(catalog, IndexName=schema.BY_ENTITY_INDEX,
-                                      KeyConditionExpression=Key('entity').eq(entity))
-                  for entity in ('ARTIST', 'SONG')}
+    def _set_catalog_totals(self, totals=None):
+        """Stores the catalog totals of the stats; counts the (not retired) artists and the songs when None."""
+        if totals is None:
+            catalog = self.table(schema.CATALOG)
+            totals = {
+                'artists': self._count(catalog, IndexName=schema.BY_ENTITY_INDEX,
+                                       KeyConditionExpression=Key('entity').eq('ARTIST'),
+                                       FilterExpression=Attr('retired').not_exists()),
+                'songs': self._count(catalog, IndexName=schema.BY_ENTITY_INDEX,
+                                     KeyConditionExpression=Key('entity').eq('SONG')),
+            }
         self.table(schema.COUNTERS).update_item(
             Key={'pk': STATS, 'sk': STATS_SK}, UpdateExpression='SET artists = :a, songs = :s',
-            ExpressionAttributeValues={':a': totals['ARTIST'], ':s': totals['SONG']})
+            ExpressionAttributeValues={':a': int(totals['artists']), ':s': int(totals['songs'])})
 
     def _raise_sequence(self, sequence, value):
         try:
@@ -375,6 +413,12 @@ class DynamoRepository(Repository):
 
     def next_id(self, sequence):
         return self._add(SEQ, sequence, 'value')
+
+    def next_ids(self, sequence, count):
+        if count <= 0:
+            return []
+        last = self._add(SEQ, sequence, 'value', amount=count)
+        return list(range(last - count + 1, last + 1))
 
     # Generated songs and titles
 

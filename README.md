@@ -114,7 +114,10 @@ Seed the catalog:
 - `uv run python -m baking.refresh_database --data baking/resources/lyrics.csv`
 - It keeps the 900 artists with the most songs and at most 10 songs each, skipping empty, too short, instrumental and placeholder lyrics.
 - The 16 artists with the most songs in the dataset are flagged as cover artists, the ones `GET /api/v1/artists/random/<n>` picks from (`--cover-artists` changes the number).
-- Ids follow the dataset order, so running it again with the same data keeps every id; records no longer in the data are deleted, generated songs and shares are kept.
+- Ids are stable across reseeds, even with a different CSV: a genre keeps its id by name, an artist by its `name` slug (such as `bee-gees`) and a song by artist slug and title. Only records the catalog does not hold yet get new ids, from the id sequences, so ids are never reused.
+- Records no longer in the data are deleted, except artists that generated songs were made for: those are retired, which keeps them readable (`GET /api/v1/artists/<id>`, the `base_artist` of their generated songs, the top artists of the stats) but leaves them out of the artist lists, search, genres and the front page. Seeding them again brings them back with the same id. Generated songs and shares are always kept.
+- The `artists` total of `GET /api/v1/general/stats` is the number of artists just seeded (retired ones are not counted).
+- Generated songs from the Heroku era (the old SQL database) are not migrated, so their old shared links answer 404 (or, once new generated songs reach the same id, show a different song: generated song ids start again at 1).
 - `--artificial 30` also creates 30 demo generated songs (model `Dummy`).
 
 ## Run

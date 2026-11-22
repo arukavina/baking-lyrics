@@ -10,9 +10,13 @@ Defaults: --data from DATA_FILE_PATH (else baking/resources/lyrics.csv), --prefi
 --region from AWS_REGION / AWS_DEFAULT_REGION, --endpoint-url from DYNAMODB_ENDPOINT_URL.
 
 Rules (unchanged from the SQL version): the MAX_ARTISTS artists with the most songs in the dataset, at most
-`max_songs` songs each, skipping empty, too short, instrumental and "tekst" placeholder lyrics. Ids are
-assigned in dataset order (1, 2, 3...), so re-running with the same data keeps every id: records are
-overwritten and records that are no longer produced are deleted. Generated songs and shares are kept.
+`max_songs` songs each, skipping empty, too short, instrumental and "tekst" placeholder lyrics.
+
+Ids are stable across reseeds, whatever the CSV: they follow the natural key of each record, never the dataset
+order. A genre keeps its id by name, an artist by its raw `name` slug (e.g. bee-gees) and a song by (artist
+slug, title); only records the catalog does not hold yet get new ids, from the id sequences. Records the new
+data no longer produces are deleted, except artists that generated songs were made for: they are retired (kept
+for their generated songs and the stats, left out of the artist lists). Generated songs and shares are kept.
 
 Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset, ties broken by id.
 
@@ -25,6 +29,7 @@ import argparse
 import datetime
 import logging
 import os
+from collections import defaultdict
 
 # Libs
 import pandas as pd
@@ -178,9 +183,60 @@ def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ART
     return list(genres.values()), list(artists.values()), songs
 
 
+def _song_key(artist_name, title):
+    return artist_name, (title or '').strip().lower()
+
+
+def assign_stable_ids(repository, genres, artists, songs):
+    """
+    Replaces the dataset order ids of build_catalog by the ids the catalog already uses for the same genre name,
+    artist name and (artist name, song title); records the catalog does not hold get new ids from the sequences.
+    Updates the records (and their genre_id / artist_id references) in place.
+    :return: (genres, artists, songs)
+    """
+    keys = repository.catalog_keys()
+    genre_ids = {genre['name']: genre['id'] for genre in keys['genres']}
+    artist_ids = {artist['name']: artist['id'] for artist in keys['artists']}
+    artist_names = {artist['id']: artist['name'] for artist in keys['artists']}
+    song_ids = defaultdict(list)  # key -> existing ids, lowest first; each is reused at most once
+    for song in sorted(keys['songs'], key=lambda s: s['id']):
+        song_ids[_song_key(artist_names.get(song['artist_id']), song['title'])].append(song['id'])
+
+    def reuse_or_allocate(records, sequence, existing_id):
+        found = [existing_id(record) for record in records]
+        fresh = iter(repository.next_ids(sequence, sum(1 for record_id in found if record_id is None)))
+        return {id(record): record_id if record_id is not None else next(fresh)
+                for record, record_id in zip(records, found, strict=True)}
+
+    genre_map = reuse_or_allocate(genres, 'genre', lambda genre: genre_ids.get(genre['name']))
+    new_genre_ids = {genre['id']: genre_map[id(genre)] for genre in genres}
+    for genre in genres:
+        genre['id'] = genre_map[id(genre)]
+
+    artist_map = reuse_or_allocate(artists, 'artist', lambda artist: artist_ids.get(artist['name']))
+    names = {artist['id']: artist['name'] for artist in artists}  # dataset order ids
+    new_artist_ids = {artist['id']: artist_map[id(artist)] for artist in artists}
+    for artist in artists:
+        artist['id'] = artist_map[id(artist)]
+        artist['genre_id'] = new_genre_ids.get(artist['genre_id'], artist['genre_id'])
+
+    def existing_song(song):
+        candidates = song_ids.get(_song_key(names.get(song['artist_id']), song['title']))
+        return candidates.pop(0) if candidates else None
+
+    song_map = reuse_or_allocate(songs, 'song', existing_song)
+    for song in songs:
+        song['id'] = song_map[id(song)]
+        song['artist_id'] = new_artist_ids[song['artist_id']]
+
+    return genres, artists, songs
+
+
 def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, cover_artists=COVER_ARTISTS):
     """
-    Writes the catalog built from `song_data` and deletes the catalog records it no longer contains.
+    Writes the catalog built from `song_data` with stable ids (see assign_stable_ids) and deletes the catalog
+    records it no longer contains (artists of generated songs are retired instead). The stats totals are the
+    numbers of artists and songs written, not a read of the index right after the writes (eventually consistent).
     :param repository: Repository
     :param song_data: DataFrame (see build_catalog)
     :param max_songs: maximum number of songs loaded by artist
@@ -189,9 +245,11 @@ def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, cover_artists
     """
     logger.info('Loading songs data to DynamoDB')
     genres, artists, songs = build_catalog(song_data, max_songs=max_songs, cover_artists=cover_artists)
-    repository.save_catalog(genres=genres, artists=artists, songs=songs)
+    assign_stable_ids(repository, genres, artists, songs)
+    totals = {'artists': len(artists), 'songs': len(songs)}
+    repository.save_catalog(genres=genres, artists=artists, songs=songs, totals=totals)
     deleted = repository.prune_catalog(genre_ids=[g['id'] for g in genres], artist_ids=[a['id'] for a in artists],
-                                       song_ids=[s['id'] for s in songs])
+                                       song_ids=[s['id'] for s in songs], totals=totals)
     logger.info(f'{len(genres)} genres, {len(artists)} artists and {len(songs)} songs loaded, '
                 f'{deleted} stale records deleted')
     return len(songs)

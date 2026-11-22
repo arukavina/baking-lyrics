@@ -33,11 +33,11 @@ class Repository(ABC):
 
     @abstractmethod
     def list_artists(self):
-        """All artists ordered by id."""
+        """All catalog artists ordered by id (retired artists are left out, see prune_catalog)."""
 
     @abstractmethod
     def get_artist(self, artist_id):
-        """The artist or None."""
+        """The artist, retired or not, or None."""
 
     @abstractmethod
     def search_artists(self, text):
@@ -73,19 +73,35 @@ class Repository(ABC):
     # Catalog writes (seeding and tests)
 
     @abstractmethod
-    def save_catalog(self, genres=(), artists=(), songs=()):
+    def catalog_keys(self):
         """
-        Writes (creates or overwrites) catalog records, then refreshes the catalog totals and moves the id
-        sequences past the highest id written.
+        The natural keys of every catalog record, retired artists included, for seeding with stable ids:
+        ``{'genres': [{'id', 'name'}], 'artists': [{'id', 'name'}], 'songs': [{'id', 'title', 'artist_id'}]}``.
         """
 
     @abstractmethod
-    def prune_catalog(self, genre_ids, artist_ids, song_ids):
-        """Deletes every catalog record whose id is not listed. Returns the number of deleted records."""
+    def save_catalog(self, genres=(), artists=(), songs=(), totals=None):
+        """
+        Writes (creates or overwrites, which also brings a retired artist back) catalog records and moves the id
+        sequences past the highest id written. `totals` (``{'artists', 'songs'}``) are the catalog totals of the
+        stats; when None they are counted from the tables.
+        """
+
+    @abstractmethod
+    def prune_catalog(self, genre_ids, artist_ids, song_ids, totals=None):
+        """
+        Deletes every catalog record whose id is not listed, except artists that generated songs were made for:
+        those are retired instead (kept for get_artist, left out of the artist lists) so generated songs keep
+        their base artist. Returns the number of deleted records. `totals` as in save_catalog.
+        """
 
     @abstractmethod
     def next_id(self, sequence):
         """Next value of an id sequence: 'genre', 'artist', 'song', 'artificial_song' or 'artificial_title'."""
+
+    @abstractmethod
+    def next_ids(self, sequence, count):
+        """The next `count` values of an id sequence (one atomic update), ascending."""
 
     # Generated songs and titles
 

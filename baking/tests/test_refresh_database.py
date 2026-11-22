@@ -93,6 +93,83 @@ def test_refresh_is_idempotent_and_prunes(repo):
     assert repo.get_stats()['artists'] == 1
 
 
+def ids_by_name(repo):
+    return {a['name']: a['id'] for a in repo.list_artists()}
+
+
+def songs_by_key(repo):
+    return {(s['artist']['name'], s['title']): s['id'] for s in repo.list_songs()}
+
+
+def test_reseed_with_a_different_csv_keeps_the_ids_of_overlapping_records(repo):
+    first = rows(('one', 2000, 'alpha', 'rock', LYRICS), ('two', 2000, 'alpha', 'rock', LYRICS),
+                 ('three', 2000, 'beta', 'pop', LYRICS), ('four', 2000, 'gamma', 'jazz', LYRICS))
+    refresh(repo, first)
+    before_artists, before_songs = ids_by_name(repo), songs_by_key(repo)
+    assert before_artists == {'alpha': 1, 'beta': 2, 'gamma': 3}
+
+    # Another CSV: new rows first (dataset order would renumber everything), alpha and beta overlap
+    second = rows(('new', 2001, 'delta', 'rock', LYRICS), ('again', 2001, 'delta', 'rock', LYRICS),
+                  ('three', 2000, 'beta', 'pop', LYRICS), ('two', 2000, 'alpha', 'rock', LYRICS),
+                  ('five', 2002, 'alpha', 'rock', LYRICS))
+    refresh(repo, second)
+
+    artists = ids_by_name(repo)
+    assert artists['alpha'] == before_artists['alpha']
+    assert artists['beta'] == before_artists['beta']
+    assert artists['delta'] == 4  # new artists get ids past the sequence, never a reused one
+    assert 'gamma' not in artists
+    songs = songs_by_key(repo)
+    assert songs[('alpha', 'Two')] == before_songs[('alpha', 'Two')]
+    assert songs[('beta', 'Three')] == before_songs[('beta', 'Three')]
+    assert {songs[('alpha', 'Five')], songs[('delta', 'New')], songs[('delta', 'Again')]} == {5, 6, 7}
+    assert ('alpha', 'One') not in songs
+    genres = {g['name']: g['id'] for g in repo.list_genres()}
+    assert genres == {'Rock': 1, 'Pop': 2}
+    assert repo.get_artist(artists['delta'])['genre'] == {'id': 1, 'name': 'Rock'}
+    assert repo.get_stats()['artists'] == 3
+
+
+def test_reseed_keeps_the_base_artist_of_generated_songs(repo):
+    refresh(repo, rows(('one', 2000, 'alpha', 'rock', LYRICS), ('two', 2000, 'beta', 'pop', LYRICS)))
+    generated = repo.create_generated_song(title='T', lyrics='l', model='m', base_artist_id=2)
+
+    refresh(repo, rows(('three', 2000, 'gamma', 'jazz', LYRICS), ('one', 2000, 'alpha', 'rock', LYRICS)))
+
+    # beta is retired: off the lists and the stats totals, still the base artist of its generated song
+    assert sorted(ids_by_name(repo).items()) == [('alpha', 1), ('gamma', 3)]
+    assert repo.get_stats()['artists'] == 2
+    assert repo.get_generated_song(generated['id'])['base_artist']['name'] == 'beta'
+    assert repo.get_stats()['top_artists'] == [{'id': 2, 'name': 'Beta', 'songs_generated': 1}]
+    assert repo.first_song_of_artist(2) is None
+    assert repo.search_artists('beta') == []
+
+    # Back in the data: same id, listed again
+    refresh(repo, rows(('two', 2000, 'beta', 'pop', LYRICS)))
+    assert ids_by_name(repo) == {'beta': 2}
+    assert repo.get_stats()['artists'] == 1
+
+
+def test_reseed_with_the_same_csv_twice_reuses_duplicate_titles_once(repo):
+    data = rows(('same', 2000, 'alpha', 'rock', LYRICS), ('same', 2001, 'alpha', 'rock', LYRICS))
+
+    refresh(repo, data)
+    refresh(repo, data)
+
+    assert [s['id'] for s in repo.list_songs()] == [1, 2]
+
+
+def test_stats_totals_come_from_the_seeded_data(repo, monkeypatch):
+    def no_count(*args, **kwargs):
+        raise AssertionError('totals must not be counted from the index right after the writes')
+
+    monkeypatch.setattr(repo, '_count', no_count)
+
+    refresh(repo, rows(('one', 2000, 'alpha', 'rock', LYRICS), ('two', 2000, 'beta', 'pop', LYRICS)))
+
+    assert repo.get_stats()['artists'] == 2
+
+
 def test_create_artificial(repo):
     data = read_song_data(TEST_DATA)
     refresh(repo, data)
