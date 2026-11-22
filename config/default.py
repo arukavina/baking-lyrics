@@ -38,6 +38,8 @@ CATALOG_CACHE_SECONDS = 60
 # Rate limiting per client, stored in the {BAKING_TABLE_PREFIX}-ratelimit table (see baking/main/ratelimit.py)
 RATELIMIT_ENABLED = True
 SHARE_RATE_LIMIT = '10 per minute;100 per day'
+# One budget shared by the three generation routes (artificial songs with and without seed, artificial titles)
+GENERATION_RATE_LIMIT = os.environ.get('GENERATION_RATE_LIMIT') or '5 per minute;50 per day'
 
 # Log
 MAIL_FROM_EMAIL = "rukavina.andrei@gmail.com"  # For use in application emails

@@ -8,6 +8,7 @@ from flask_restx import Resource, abort
 # Own
 from baking.main import api
 from baking.main.repository import get_repository
+from baking.main.v1.endpoints.artificial_songs import TOO_MANY_GENERATIONS, abort_if_generating_too_much
 from baking.main.v1.models import generator
 from baking.main.v1.parsers import page_of, pagination_arguments
 from baking.main.v1.serializers import artificial_title, page_of_artificial_titles
@@ -33,6 +34,7 @@ class ArtificialTitleCollection(Resource):
 
 @ns.route('/generate/<lang>/song/<int:song_id>/')
 @ns.response(404, 'Artificial song not found.')
+@ns.response(429, TOO_MANY_GENERATIONS)
 @ns.response(500, 'Internal server error.')
 @ns.response(503, 'ML models are not loaded.')
 class ArtificialTitleItem(Resource):
@@ -53,6 +55,7 @@ class ArtificialTitleItem(Resource):
         service = generator.get_service(current_app)
         if not service.settings.enabled:
             abort(503, 'ML models are not loaded')
+        abort_if_generating_too_much()
 
         # The title is written in the style of the artist the song was generated for
         artist = generated.get('base_artist')

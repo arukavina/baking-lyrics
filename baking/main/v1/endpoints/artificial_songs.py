@@ -41,16 +41,28 @@ def model_service():
     return service
 
 
-def abort_if_rate_limited(route, limits):
+TOO_MANY_SHARES = 'Too many shares from this address, try again later.'
+TOO_MANY_GENERATIONS = 'Too many generations from this address, try again later.'
+
+
+def abort_if_rate_limited(route, limits, message):
     """
-    Answers 429 when the client exhausted one of `limits` (e.g. "10 per minute;100 per day") on `route`.
-    Disabled with RATELIMIT_ENABLED = False.
+    Answers 429 with `message` when the client exhausted one of `limits` (e.g. "10 per minute;100 per day") on
+    `route`. Disabled with RATELIMIT_ENABLED = False.
     """
     if not app.config.get('RATELIMIT_ENABLED', True):
         return
     table = get_repository().table(schema.RATELIMIT)
     if ratelimit.is_rate_limited(table, ratelimit.client_ip(request), route, ratelimit.parse_limits(limits)):
-        abort(429, 'Too many shares from this address, try again later.')
+        abort(429, message)
+
+
+def abort_if_generating_too_much():
+    """
+    Generation is the expensive call (about 2 seconds of Lambda CPU), so every generation route shares one per
+    client budget, GENERATION_RATE_LIMIT. Called once the request is valid, right before generating.
+    """
+    abort_if_rate_limited('generate', app.config['GENERATION_RATE_LIMIT'], TOO_MANY_GENERATIONS)
 
 
 def artist_and_sample_song(artist_id):
@@ -75,6 +87,7 @@ def generate_song(artist, seed_text, number_words):
     is not available. Returns (lyrics, title, model label).
     """
     service = model_service()
+    abort_if_generating_too_much()
     number_words = max(1, min(int(number_words), MAX_WORDS))
     start_time = time.perf_counter()
     try:
@@ -136,7 +149,7 @@ class ArtificialSongShares(Resource):
         """
         Records a share of a generated song on a social network and returns its total shares.
         """
-        abort_if_rate_limited('shares', app.config['SHARE_RATE_LIMIT'])
+        abort_if_rate_limited('shares', app.config['SHARE_RATE_LIMIT'], TOO_MANY_SHARES)
 
         network = (api.payload.get('network') or '').strip().lower()
         if network not in SHARE_NETWORKS:
@@ -154,6 +167,7 @@ class ArtificialSongShares(Resource):
 @ns.response(400, 'Artist Id not found.')
 @ns.response(404, 'No Songs for Artist Id found.')
 @ns.response(411, 'Seed can not be empty.')
+@ns.response(429, TOO_MANY_GENERATIONS)
 @ns.response(500, 'Internal server error.')
 @ns.response(501, 'Artificial Songs can only be generated in english.')
 @ns.response(503, 'ML models are not loaded.')
@@ -187,6 +201,7 @@ class ArtificialSongSeedGenerator(Resource):
 @ns.response(400, 'Artist Id not found.')
 @ns.response(404, 'No Songs for Artist Id found.')
 @ns.response(411, 'Seed can not be empty.')
+@ns.response(429, TOO_MANY_GENERATIONS)
 @ns.response(500, 'Internal server error.')
 @ns.response(501, 'Artificial Songs can only be generated in english.')
 @ns.response(503, 'ML models are not loaded.')

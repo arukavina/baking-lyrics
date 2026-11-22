@@ -61,6 +61,7 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 - `DYNAMODB_ENDPOINT_URL` (optional): DynamoDB endpoint for local development, such as a moto server (`http://localhost:5000`) or DynamoDB Local.
 - `ALLOWED_ORIGINS` (optional): comma separated browser origins allowed to call `/api/*` (CORS), `http://localhost:3000` by default.
 - `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` (optional): commit sha and ISO 8601 commit date reported by `GET /api/v1/general/version`; when both are unset they are read from git, and they are `null` if git is unavailable.
+- `GENERATION_RATE_LIMIT` (optional): per client limit of the generation routes, `5 per minute;50 per day` by default (see [Run](#run)).
 - `MODEL_DIR`, `MODEL_BUCKET`, `MODEL_PREFIX`, `MODEL_VERSION`, `MODEL_PRELOAD` (optional): where the lyrics model comes from, see [Model](#model).
 - AWS credentials: the usual boto3 sources (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, SSO). With a moto server any non empty fake values work.
 
@@ -94,7 +95,7 @@ The API stores everything in five on-demand DynamoDB tables named after `BAKING_
 - `<prefix>-generated`: generated songs and titles.
 - `<prefix>-shares`: one item per share of a generated song.
 - `<prefix>-counters`: id sequences and the totals behind `GET /api/v1/general/stats`.
-- `<prefix>-ratelimit`: per client share rate limit windows, removed by DynamoDB TTL on `ttl`.
+- `<prefix>-ratelimit`: per client share and generation rate limit windows, removed by DynamoDB TTL on `ttl`.
 
 Keys, indexes and TTL are defined in one place, `baking/main/repository/schema.py`.
 
@@ -120,7 +121,9 @@ Seed the catalog:
 
 - Start the API: `uv run flask --app baking.manage run --port 9090`
 - Open the Swagger UI at http://localhost:9090/api/v1/
-- Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`), counted in the ratelimit table so the limit holds across processes; the client is the left-most `X-Forwarded-For` address.
+- Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`), counted in the ratelimit table so the limit holds across processes; the client is the source IP of the Function URL request, else the left-most `X-Forwarded-For` address.
+- Generations are limited the same way to 5 per minute and 50 per day per client (`GENERATION_RATE_LIMIT`), one budget shared by the two song generation routes and the title generation route. Only valid requests count (an unknown artist or song is rejected first), and a client over the limit gets `429` with `{"message": "Too many generations from this address, try again later."}`.
+- Both limits are off in the testing config (`RATELIMIT_ENABLED = False`).
 - The catalog is read only through the API: genres, artists and songs change only by seeding.
 - The list endpoints `GET /api/v1/artists/`, `/songs/`, `/artificial_songs/` and `/artificial_titles/` are paginated with the query parameters `page` (from 1) and `per_page` (2, 10, 20, 30, 40 or 50, 10 by default) and answer `{"items": [...], "page", "pages", "per_page", "total"}`; a page past the end has no items.
 - Artists and songs are listed by id, generated songs and titles most recent first. A page reads only what it shows (a Query with `Limit`, or an id range of the `by_entity` index newest first for generated songs and titles), so no list ever returns or reads a whole table.

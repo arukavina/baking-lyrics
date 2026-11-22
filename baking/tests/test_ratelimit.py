@@ -1,5 +1,6 @@
 """
-DynamoDB fixed window rate limit (baking.main.ratelimit) and its use on POST /artificial_songs/<id>/shares.
+DynamoDB fixed window rate limit (baking.main.ratelimit) and its use on POST /artificial_songs/<id>/shares and
+on the generation routes.
 """
 
 # Generic
@@ -14,7 +15,7 @@ from werkzeug.wrappers import Request
 # Own
 from baking.main import ratelimit
 from baking.main.repository import schema
-from baking.tests.conftest import REGION, TABLE_PREFIX, seed
+from baking.tests.conftest import REGION, TABLE_PREFIX, install_fake_model, seed
 
 SHARES = '/api/v1/artificial_songs/{}/shares'
 TOO_MANY = {'message': 'Too many shares from this address, try again later.'}
@@ -188,3 +189,77 @@ def test_default_limits():
 
     assert config.default.RATELIMIT_ENABLED is True
     assert ratelimit.parse_limits(config.default.SHARE_RATE_LIMIT) == [(10, 60), (100, 86400)]
+    assert ratelimit.parse_limits(config.default.GENERATION_RATE_LIMIT) == [(5, 60), (50, 86400)]
+
+
+def test_generation_limit_comes_from_the_environment(config_env):
+    config_env(GENERATION_RATE_LIMIT='2 per minute')
+    import config.default
+
+    assert config.default.GENERATION_RATE_LIMIT == '2 per minute'
+
+
+# Generation endpoints
+
+SEED_SONG = '/api/v1/artificial_songs/generate/en/seed/hello/words/20/artist/1/'
+NO_SEED_SONG = '/api/v1/artificial_songs/generate/en/words/20/artist/1/'
+TITLE = '/api/v1/artificial_titles/generate/en/song/1/'
+TOO_MANY_GENERATIONS = {'message': 'Too many generations from this address, try again later.'}
+
+
+@pytest.fixture
+def generation_app(aws, make_app):
+    app = make_app(RATELIMIT_ENABLED=True, GENERATION_RATE_LIMIT='3 per minute')
+    seed(app)
+    install_fake_model(app)
+    return app
+
+
+@pytest.mark.parametrize('url', [SEED_SONG, NO_SEED_SONG, TITLE])
+def test_generation_is_rate_limited_per_client(generation_app, url):
+    client = generation_app.test_client()
+    statuses = [client.get(url).status_code for _ in range(4)]
+
+    assert statuses == [200, 200, 200, 429]
+    response = client.get(url)
+    assert response.status_code == 429
+    assert response.json == TOO_MANY_GENERATIONS
+    assert client.get(url, headers={'X-Forwarded-For': '203.0.113.9'}).status_code == 200
+
+
+def test_generation_routes_share_one_budget(generation_app):
+    from baking.main.repository import EXTENSION_KEY
+
+    client = generation_app.test_client()
+
+    assert [client.get(url).status_code for url in (SEED_SONG, NO_SEED_SONG, TITLE, SEED_SONG, TITLE)] == [
+        200, 200, 200, 429, 429]
+    assert generation_app.extensions[EXTENSION_KEY].get_stats()['songs_generated'] == 8  # 6 seeded + 2
+
+
+def test_invalid_generation_requests_are_not_counted(generation_app):
+    client = generation_app.test_client()
+
+    for _ in range(5):
+        assert client.get('/api/v1/artificial_songs/generate/en/words/20/artist/999/').status_code == 400
+        assert client.get('/api/v1/artificial_titles/generate/en/song/999/').status_code == 404
+
+    assert client.get(SEED_SONG).status_code == 200
+
+
+def test_generation_and_shares_have_separate_budgets(aws, make_app):
+    app = make_app(RATELIMIT_ENABLED=True, GENERATION_RATE_LIMIT='1 per minute', SHARE_RATE_LIMIT='1 per minute')
+    seed(app)
+    install_fake_model(app)
+    client = app.test_client()
+
+    assert client.get(SEED_SONG).status_code == 200
+    assert post_share(client).status_code == 201
+    assert client.get(SEED_SONG).status_code == 429
+    assert post_share(client).status_code == 429
+
+
+def test_generation_rate_limit_is_off_in_testing(client, app):
+    install_fake_model(app)
+
+    assert all(client.get(SEED_SONG).status_code == 200 for _ in range(7))
