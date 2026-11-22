@@ -39,6 +39,7 @@ class ModelConfig:
     dropout_out: float = 0.25  # locked dropout before the softmax
     weight_drop: float = 0.3  # DropConnect on hidden-to-hidden weights
     cond_drop: float = 0.1  # probability of replacing the artist id with "unknown"
+    emb_init_std: float = 0.3  # word embedding init; ~ the scale of GloVe 6B vectors (see reset_parameters)
     tie_weights: bool = True
 
     def to_dict(self) -> dict:
@@ -101,7 +102,11 @@ class LyricsLSTM(nn.Module):
     def reset_parameters(self) -> None:
         # Xavier input weights and orthogonal recurrent weights per gate: with PyTorch's default init a 3 layer
         # stack sat on a unigram plateau for ~450 steps in the smoke run; this keeps early gradients larger.
-        nn.init.uniform_(self.embed.weight, -0.1, 0.1)
+        # With tied weights the context logits are hidden . embedding: the AWD-LSTM default uniform(-0.1, 0.1)
+        # kept a 3 layer stack on the unigram plateau for 1,000+ steps in the smoke run; std 0.3 left it in ~300.
+        nn.init.normal_(self.embed.weight, std=self.cfg.emb_init_std)
+        with torch.no_grad():
+            self.embed.weight[0].zero_()  # <pad>
         nn.init.normal_(self.artist_embed.weight, std=0.1)
         nn.init.normal_(self.genre_embed.weight, std=0.1)
         nn.init.zeros_(self.decoder.bias)
