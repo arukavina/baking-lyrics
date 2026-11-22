@@ -363,6 +363,8 @@ def write_outputs(df: pd.DataFrame, meta: dict, out_dir: str | Path, cfg: PrepCo
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)  # progress shows up live in notebooks and logs
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--csv", help="local lyrics CSV (or zip) with the Kaggle schema")

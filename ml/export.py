@@ -188,6 +188,8 @@ def export_bundle(run_dir: str | Path, out_dir: str | Path, version: str | None 
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)  # progress shows up live in notebooks and logs
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--run", required=True, help="training run directory")
     p.add_argument("--out", default="ml/bundles", help="parent directory for the bundle")

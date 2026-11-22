@@ -444,6 +444,8 @@ def eval_only(data_dir: str | Path, run_dir: str | Path, split: str, device_name
 
 
 def main(argv: Iterable[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)  # progress shows up live in notebooks and logs
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--data", required=True, help="directory written by ml.data")
     p.add_argument("--out", required=True, help="run directory (resumed when it holds last.pt)")
