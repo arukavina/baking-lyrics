@@ -9,6 +9,7 @@ permissions:
   contents: read
 
 jobs:
+  # Job id `test` is the required status check on master; keep it
   test:
     runs-on: ubuntu-latest
     env:
@@ -19,11 +20,31 @@ jobs:
         with:
           python-version: "3.12"
       # The ml extra (onnxruntime) is what production serves with; torch (train group) stays out of CI
-      - run: uv sync --locked --extra ml
-      - run: uv run ruff check .
-      - run: uv run pytest --cov=baking --cov-report=term --cov-report=xml
+      - name: Install dependencies
+        run: uv sync --locked --extra ml
+      - name: Lint
+        run: uv run ruff check .
+      - name: Test
+        run: uv run pytest --cov=baking --cov-report=term --cov-report=xml
+      - name: Keep the coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage.xml
+          retention-days: 7
+
+  codecov:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get the coverage report
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage
       # A Codecov outage or a fork without the secret must not block merges or deploys
-      - uses: codecov/codecov-action@v7
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           disable_search: true
