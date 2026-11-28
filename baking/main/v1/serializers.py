@@ -10,6 +10,8 @@ artist = api.model('Artist', {
     'country': fields.String(required=True, description='Artist\'s origin country'),
     'formation_date': fields.DateTime,
     'genre': fields.String(attribute='genre.name'),
+    'wiki_title': fields.String(description='English Wikipedia page of the artist, if known'),
+    'image_url': fields.String(description='Picture of the artist from that page, if any'),
 })
 
 pagination = api.model('A page of results', {

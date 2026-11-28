@@ -103,6 +103,7 @@ def test_artist_record(seeded):
     assert seeded.get_artist(1) == {
         'id': 1, 'name': 'beyonce-knowles', 'clean_name': 'Beyonce Knowles', 'cover': True, 'country': 'US',
         'formation_date': datetime(1986, 6, 28), 'genre_id': 1, 'genre': {'id': 1, 'name': 'Pop'},
+        'wiki_title': None, 'image_url': None,
     }
 
 
@@ -110,7 +111,8 @@ def test_artist_without_optional_fields(repo):
     repo.save_catalog(artists=[{'id': 7, 'name': 'raw'}])
 
     assert repo.get_artist(7) == {'id': 7, 'name': 'raw', 'clean_name': None, 'cover': False, 'country': None,
-                                  'formation_date': None, 'genre_id': None, 'genre': None}
+                                  'formation_date': None, 'genre_id': None, 'genre': None,
+                                  'wiki_title': None, 'image_url': None}
 
 
 def test_lists_are_ordered_by_id(seeded):
