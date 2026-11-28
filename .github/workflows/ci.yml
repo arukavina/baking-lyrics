@@ -21,4 +21,11 @@ jobs:
       # The ml extra (onnxruntime) is what production serves with; torch (train group) stays out of CI
       - run: uv sync --locked --extra ml
       - run: uv run ruff check .
-      - run: uv run pytest --cov=baking
+      - run: uv run pytest --cov=baking --cov-report=term --cov-report=xml
+      # A Codecov outage or a fork without the secret must not block merges or deploys
+      - uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage.xml
+          disable_search: true
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
