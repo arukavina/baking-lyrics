@@ -20,11 +20,14 @@ Usage::
     python -m ml.data --kaggle --out ml/data/processed
     python -m ml.data --csv path/to/lyrics.csv --out ml/data/processed
     python -m ml.data --csv lyrics.csv --extra-songdata songdata.csv --out ml/data/processed
+    python -m ml.data --csv lyrics.csv --extra-songdata songdata.csv --max-artists 1500 \
+        --exclude-artists baking/resources/artist_pages.csv --out ml/data/processed   # production
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import re
@@ -76,6 +79,7 @@ class PrepConfig:
     lang_detector: str = "auto"  # auto | fasttext | heuristic | none
     line_mode: str = "auto"  # auto | newlines | heuristic | none
     artists: list[str] = field(default_factory=list)  # explicit artist slugs (overrides the top-N choice)
+    exclude: list[str] = field(default_factory=list)  # artist slugs never selected (compilations, TV casts...)
 
 
 # Loading ------------------------------------------------------------------------------------------
@@ -270,10 +274,27 @@ def clean_frame(df: pd.DataFrame, cfg: PrepConfig, log=print) -> pd.DataFrame:
     return df
 
 
+def read_excluded(path: str | Path) -> list[str]:
+    """
+    Artist slugs to leave out: the rows marked `none` of the backend's artist pages list
+    (baking/resources/artist_pages.csv: artists without an English Wikipedia music page, mostly compilations and TV
+    casts), or any text file with one slug per line.
+    """
+    path = Path(path)
+    with open(path, newline="", encoding="utf-8") as handle:
+        if path.suffix.lower() == ".csv":
+            return sorted(row["artist"] for row in csv.DictReader(handle) if row.get("source") == "none")
+        return sorted({line.strip() for line in handle if line.strip() and not line.startswith("#")})
+
+
 def select_artists(df: pd.DataFrame, cfg: PrepConfig, log=print) -> pd.DataFrame:
-    """Keep artists with >= min_songs songs (top max_artists by count) and cap songs per artist."""
+    """Keep artists with >= min_songs songs (top max_artists by count, never the excluded ones) and cap their songs."""
     counts = df.groupby("artist").size()
     counts = counts[counts >= cfg.min_songs]
+    if cfg.exclude:
+        left_out = counts.index.isin(cfg.exclude)
+        log(f"artists: {int(left_out.sum())} excluded before choosing the top {cfg.max_artists}")
+        counts = counts[~left_out]
     order = sorted(counts.index, key=lambda a: (-int(counts[a]), a))[: cfg.max_artists]
     if cfg.max_artists > API_MAX_ARTISTS:
         log(f"note: max_artists {cfg.max_artists} > {API_MAX_ARTISTS}; seed the API with "
@@ -386,6 +407,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     p.add_argument("--lang-detector", choices=["auto", "fasttext", "heuristic", "none"], default=d.lang_detector)
     p.add_argument("--line-mode", choices=["auto", "newlines", "heuristic", "none"], default=d.line_mode)
     p.add_argument("--artists", default="", help="comma separated artist slugs to keep (overrides top-N)")
+    p.add_argument("--exclude-artists", help="artists to leave out: the backend's baking/resources/artist_pages.csv "
+                                             "(rows marked none) or a text file with one slug per line")
     args = p.parse_args(list(argv) if argv is not None else None)
 
     cfg = PrepConfig(
@@ -393,6 +416,7 @@ def main(argv: Iterable[str] | None = None) -> int:
         min_words=args.min_words, max_words=args.max_words, val_frac=args.val_frac, test_frac=args.test_frac,
         seed=args.seed, lang_detector=args.lang_detector, line_mode=args.line_mode,
         artists=[a.strip() for a in args.artists.split(",") if a.strip()],
+        exclude=read_excluded(args.exclude_artists) if args.exclude_artists else [],
     )
     t0 = time.time()
     path = download_kaggle(args.download_dir) if args.kaggle else Path(args.csv)

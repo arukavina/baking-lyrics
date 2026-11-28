@@ -12,6 +12,7 @@ from ml.data import (
     is_placeholder,
     normalise_genre,
     prepare,
+    read_excluded,
     read_lyrics_csv,
     restore_lines,
     split_by_song,
@@ -143,6 +144,24 @@ def test_split_is_deterministic():
 def test_explicit_artist_list():
     df, meta = prepare(_frame({"big": 12, "mid": 9}), _cfg(artists=["mid"]), log=lambda *_: None)
     assert list(meta["artists"]) == ["mid"]
+
+
+def test_excluded_artists_leave_room_for_the_next_ones():
+    raw = _frame({"big": 12, "glee-cast": 10, "mid": 6})
+    df, meta = prepare(raw, _cfg(exclude=["glee-cast"]), log=lambda *_: None)
+    assert sorted(meta["artists"]) == ["big", "mid"]
+    assert "glee-cast" not in set(df["artist"])
+
+
+def test_read_excluded_from_the_artist_pages_list_or_a_text_file(tmp_path):
+    pages = tmp_path / "artist_pages.csv"
+    pages.write_text("".join(line + "\n" for line in [
+        "artist,wiki_title,image_url,source", "queen,Queen (band),q.jpg,exact", "glee,,,none", "disney,,,none",
+    ]), encoding="utf-8")
+    slugs = tmp_path / "exclude.txt"
+    slugs.write_text("".join(line + "\n" for line in ["# compilations", "glee", "", "disney"]), encoding="utf-8")
+    assert read_excluded(pages) == ["disney", "glee"]
+    assert read_excluded(slugs) == ["disney", "glee"]
 
 
 def test_write_outputs_catalog_schema(tmp_path):
