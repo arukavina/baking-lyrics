@@ -48,7 +48,8 @@ WIKIPEDIA_API = 'https://en.wikipedia.org/w/api.php'
 # Wikimedia asks automated clients for a descriptive user agent with a way to reach the operator
 USER_AGENT = 'BakingLyrics/0.5 (https://github.com/arukavina/baking-lyrics)'
 THUMBNAIL_WIDTH = 640
-TITLE_SUFFIXES = ['', ' (band)', ' (musician)', ' (singer)', ' (rapper)', ' (group)']
+TITLE_SUFFIXES = ['', ' (band)', ' (musician)', ' (singer)', ' (rapper)', ' (group)', ' (singer-songwriter)',
+                  ' (American band)', ' (British band)', ' (English band)', ' (rock band)', ' (metal band)']
 MUSIC_DESCRIPTION = re.compile(
     r'\b(bands?|singers?|rappers?|musicians?|music|musical|groups?|duo|trio|songwriters?|composers?|vocalists?|'
     r'guitarists?|pianists?|dj|record producers?|entertainers?|orchestra|choir|ensemble|hip hop|rock|pop|country|'
@@ -70,6 +71,25 @@ def image_url(page):
     parts = urllib.parse.urlsplit(source)
     query = [(k, v) for k, v in urllib.parse.parse_qsl(parts.query) if not k.startswith('utm_')]
     return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+
+
+def name_words(text):
+    """
+    The words of a name for comparing an artist with a page title: lowercase, a trailing "(...)" dropped, "&" read
+    as "and", punctuation removed, and "the" and "and" ignored (see same_name for how two names are compared).
+    """
+    text = re.sub(r'\s*\([^)]*\)\s*$', '', str(text).lower()).replace('&', ' and ')
+    words = re.sub(r"[^a-z0-9\s]", '', re.sub(r"[-/,.!+]", ' ', text)).split()
+    return [word for word in words if word not in ('the', 'and')]
+
+
+def same_name(name, title):
+    """
+    Same words in any order ("Cave Nick" is "Nick Cave"), or the same letters once spaces are dropped, because slugs
+    split names at apostrophes and dots ("Anita O Day" is "Anita O'Day", "Andrew Wk" is "Andrew W.K.").
+    """
+    a, b = name_words(name), name_words(title)
+    return bool(a) and (sorted(a) == sorted(b) or ''.join(a) == ''.join(b))
 
 
 def is_music_page(page):
@@ -133,16 +153,23 @@ class Wikipedia:
 
 def resolve(wikipedia, name):
     """
-    The music page of an artist display name: the exact title or a disambiguated variant (TITLE_SUFFIXES order),
-    else the best ranked music page of a full text search.
+    The music page of an artist display name: the exact title (or where Wikipedia redirects it), else a disambiguated
+    variant (TITLE_SUFFIXES order) whose page has the same name, else the best ranked search hit with the same name.
     :return: (wiki_title, image_url, source) with source exact, search or none
     """
     titles = [f'{name}{suffix}' for suffix in TITLE_SUFFIXES]
     pages = wikipedia.by_titles(titles)
-    page = next((pages[t] for t in titles if is_music_page(pages.get(t))), None)
+
+    def acceptable(title):
+        page = pages.get(title)
+        # A disambiguated variant may redirect elsewhere ("Prince (band)" is The Revolution): it must keep the name
+        return is_music_page(page) and (title == name or same_name(name, page['title']))
+
+    page = next((pages[t] for t in titles if acceptable(t)), None)
     source = EXACT
     if page is None:
-        page = next((p for p in wikipedia.search(name) if is_music_page(p)), None)
+        # Search hits must carry the artist's name: "Bush" must not become Kate Bush
+        page = next((p for p in wikipedia.search(name) if is_music_page(p) and same_name(name, p['title'])), None)
         source = SEARCH
     if page is None:
         return '', '', NONE
@@ -172,9 +199,15 @@ def save_pages(pages, path=PAGES_FILE):
             writer.writerow({field: pages[slug].get(field) or '' for field in FIELDS})
 
 
-def update_pages(pages, slugs, wikipedia, refresh=False, save=None, save_every=25):
+def is_uncertain(slug, row):
+    """Rows worth a second look: found by search, not found, or whose page title does not carry the artist's name."""
+    return row['source'] in (SEARCH, NONE) or not same_name(display_name(slug), row['wiki_title'])
+
+
+def update_pages(pages, slugs, wikipedia, refresh=False, recheck=False, save=None, save_every=25):
     """
-    Resolves the artists of `slugs` that `pages` does not hold yet (all but the manual rows with `refresh`), and
+    Resolves the artists of `slugs` that `pages` does not hold yet (all but the manual rows with `refresh`, the
+    uncertain ones with `recheck`), and
     fills the picture of manual rows that have a title but no image.
     :param save: optional callable(pages) called every `save_every` lookups and at the end, so a long run can resume
     :return: number of artists looked up
@@ -186,7 +219,7 @@ def update_pages(pages, slugs, wikipedia, refresh=False, save=None, save_every=2
             if row['wiki_title'] and not row['image_url']:
                 row['image_url'] = image_of(wikipedia, row['wiki_title'])
                 looked_up += 1
-        elif row is None or refresh:
+        elif row is None or refresh or (recheck and is_uncertain(slug, row)):
             title, image, source = resolve(wikipedia, display_name(slug))
             pages[slug] = {'artist': slug, 'wiki_title': title, 'image_url': image, 'source': source}
             logger.info(f'{slug}: {source} {title}')
@@ -210,6 +243,8 @@ def parse_args(argv=None):
     parser.add_argument('--catalog', required=True, help='songs CSV whose artists to resolve, e.g. catalog.csv')
     parser.add_argument('--pages', default=PAGES_FILE, help='the artist pages CSV to extend')
     parser.add_argument('--refresh', action='store_true', help='look up again every artist except manual rows')
+    parser.add_argument('--recheck', action='store_true',
+                        help='look up again the rows found by search, not found, or whose title differs from the name')
     parser.add_argument('--delay', type=float, default=1.0, help='seconds between Wikipedia requests')
     parser.add_argument('--limit', type=int, default=None, help='only the first N artists (for a quick try)')
     return parser.parse_args(argv)
@@ -220,7 +255,7 @@ def main(argv=None):
     args = parse_args(argv)
     pages = load_pages(args.pages)
     slugs = catalog_slugs(args.catalog)[:args.limit]
-    looked_up = update_pages(pages, slugs, Wikipedia(delay=args.delay), refresh=args.refresh,
+    looked_up = update_pages(pages, slugs, Wikipedia(delay=args.delay), refresh=args.refresh, recheck=args.recheck,
                              save=lambda p: save_pages(p, args.pages))
     counts = pd.Series([pages[s]['source'] for s in slugs if s in pages]).value_counts().to_dict()
     print(f'{looked_up} artists looked up; {len(pages)} in {args.pages}; sources for this catalog: {counts}')

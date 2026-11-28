@@ -51,8 +51,7 @@ def test_skips_a_page_not_about_music_for_the_band_page():
                                      page('Scorpions (band)', 'German rock band', 'band.jpg')])
 
     assert resolve(wikipedia, 'Scorpions') == ('Scorpions (band)', 'band.jpg', 'exact')
-    assert wikipedia.calls[0]['titles'] == ('Scorpions|Scorpions (band)|Scorpions (musician)|Scorpions (singer)|'
-                                            'Scorpions (rapper)|Scorpions (group)')
+    assert wikipedia.calls[0]['titles'].startswith('Scorpions|Scorpions (band)|Scorpions (musician)|')
     assert len(wikipedia.calls) == 1
 
 
@@ -75,6 +74,56 @@ def test_image_urls_lose_the_tracking_parameters():
                                           'https://upload.wikimedia.org/q.jpg?utm_source=en.wikipedia.org&utm_campaign=api')])
 
     assert resolve(wikipedia, 'Queen')[1] == 'https://upload.wikimedia.org/q.jpg'
+
+
+def test_a_variant_that_redirects_to_another_name_is_skipped():
+    wikipedia = FakeWikipedia(redirects={'Prince (band)': 'The Revolution (band)'},
+                              pages=[page('Prince', 'Royal title'),
+                                     page('The Revolution (band)', 'American rock band', 'revolution.jpg'),
+                                     page('Prince (musician)', 'American musician (1958 to 2016)', 'prince.jpg')])
+
+    assert resolve(wikipedia, 'Prince') == ('Prince (musician)', 'prince.jpg', 'exact')
+
+
+def test_search_hits_must_carry_the_artist_name():
+    wikipedia = FakeWikipedia(search={'Bush': [page('Kate Bush', 'English singer-songwriter', 'kate.jpg')],
+                                      'Cave Nick': [page('Nick Cave', 'Australian musician', 'nick.jpg')]})
+
+    assert resolve(wikipedia, 'Bush') == ('', '', 'none')
+    assert resolve(wikipedia, 'Cave Nick') == ('Nick Cave', 'nick.jpg', 'search')
+
+
+@pytest.mark.parametrize('name, title, same', [
+    ('Brooks Dunn', 'Brooks & Dunn', True),
+    ('Echo The Bunnymen', 'Echo & the Bunnymen', True),
+    ('Ac Dc', 'AC/DC', True),
+    ('Gilbert Osullivan', "Gilbert O'Sullivan", True),
+    ('Queen', 'Queen (band)', True),
+    ('Anita O Day', "Anita O'Day", True),
+    ('Andrew Wk', 'Andrew W.K.', True),
+    ('The Go Go S', "The Go-Go's", True),
+    ('Bush', 'Kate Bush', False),
+    ('Prince', 'The Revolution (band)', False),
+])
+def test_same_name(name, title, same):
+    assert artist_pages.same_name(name, title) is same
+
+
+def test_recheck_only_looks_up_uncertain_rows():
+    pages = {
+        'queen': {'artist': 'queen', 'wiki_title': 'Queen (band)', 'image_url': 'q.jpg', 'source': 'exact'},
+        'prince': {'artist': 'prince', 'wiki_title': 'The Revolution (band)', 'image_url': 'r.jpg', 'source': 'exact'},
+        'bush': {'artist': 'bush', 'wiki_title': 'Kate Bush', 'image_url': 'k.jpg', 'source': 'search'},
+    }
+    wikipedia = FakeWikipedia(pages=[page('Prince (musician)', 'American musician', 'prince.jpg'),
+                                     page('Bush (British band)', 'British rock band', 'bush.jpg')])
+
+    looked_up = update_pages(pages, ['bush', 'prince', 'queen'], wikipedia, recheck=True)
+
+    assert looked_up == 2
+    assert pages['prince']['wiki_title'] == 'Prince (musician)'
+    assert pages['bush']['wiki_title'] == 'Bush (British band)'
+    assert pages['queen']['image_url'] == 'q.jpg'
 
 
 def test_nothing_about_music_is_none():
