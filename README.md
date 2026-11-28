@@ -1,5 +1,7 @@
 ![bakinglyrics.com][logo]
 
+[![codecov](https://codecov.io/gh/arukavina/baking-lyrics/graph/badge.svg)](https://codecov.io/gh/arukavina/baking-lyrics)
+
 [logo]: img/logo.png "Baking Lyrics logo" 
 
 This is an open source, side project created from the bottom of the world. (Bottom to be read as arse). Here is a map.
