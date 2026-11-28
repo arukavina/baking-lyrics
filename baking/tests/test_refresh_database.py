@@ -203,3 +203,14 @@ def test_cli(repo, capsys):
     assert len(repo.list_songs()) == 6
     assert repo.get_artist(1)['cover'] is True  # the only artist is in the top 16
     assert repo.get_stats()['songs_generated'] == 2
+
+
+def test_cli_max_artists(repo, tmp_path):
+    data = rows(*[(f'{name} song {j}', 2000, name, 'pop', LYRICS) for name, n in (('big', 3), ('mid', 2), ('small', 1))
+                  for j in range(n)])
+    path = tmp_path / 'catalog.csv'
+    data.to_csv(path, index=False)
+
+    main(['--data', str(path), '--prefix', TABLE_PREFIX, '--max-artists', '2'])
+
+    assert sorted(a['name'] for a in repo.list_artists()) == ['big', 'mid']
