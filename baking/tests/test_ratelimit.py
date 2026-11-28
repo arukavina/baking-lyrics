@@ -5,6 +5,7 @@ on the generation routes.
 
 # Generic
 import json
+import types
 
 # Libs
 import boto3
@@ -20,6 +21,12 @@ from baking.tests.conftest import REGION, TABLE_PREFIX, install_fake_model, seed
 SHARES = '/api/v1/artificial_songs/{}/shares'
 TOO_MANY = {'message': 'Too many shares from this address, try again later.'}
 NOW = 1_700_000_000  # an epoch second in the middle of a minute window
+
+
+@pytest.fixture(autouse=True)
+def frozen_clock(monkeypatch):
+    """Pins the limiter clock so requests in one test never straddle a window boundary."""
+    monkeypatch.setattr(ratelimit, 'time', types.SimpleNamespace(time=lambda: NOW))
 
 
 @pytest.fixture
