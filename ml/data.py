@@ -41,7 +41,7 @@ from ml.tokenizer import normalise_text, title_from_slug
 KAGGLE_HANDLE = "gyani95/380000-lyrics-from-metrolyrics/versions/2"
 COLUMNS = ["index", "song", "year", "artist", "genre", "lyrics"]
 ARTISTS_FORMAT_VERSION = 1
-API_MAX_ARTISTS = 900  # baking.refresh_database keeps the top 900 artists of the catalog
+API_MAX_ARTISTS = 900  # baking.refresh_database default for --max-artists
 
 _ANNOTATION_RE = re.compile(r"\[[^\]\n]*\]|<[^>\n]*>|\{[^}\n]*\}")
 _SECTION_LINE_RE = re.compile(
@@ -274,8 +274,8 @@ def select_artists(df: pd.DataFrame, cfg: PrepConfig, log=print) -> pd.DataFrame
     counts = counts[counts >= cfg.min_songs]
     order = sorted(counts.index, key=lambda a: (-int(counts[a]), a))[: cfg.max_artists]
     if cfg.max_artists > API_MAX_ARTISTS:
-        log(f"warning: max_artists {cfg.max_artists} > {API_MAX_ARTISTS}; the API catalog seeds only the top "
-            f"{API_MAX_ARTISTS}, so some model artists would not be selectable on the site")
+        log(f"note: max_artists {cfg.max_artists} > {API_MAX_ARTISTS}; seed the API with "
+            f"`refresh_database --max-artists {cfg.max_artists}` so every model artist is selectable on the site")
     rng = np.random.default_rng(cfg.seed)
     parts = []
     for artist in sorted(order):
