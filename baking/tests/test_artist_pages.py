@@ -227,3 +227,14 @@ def test_seeding_serves_the_page_and_picture_of_each_artist(app_repo, client):
 
     assert (queen['wiki_title'], queen['image_url']) == ('Queen (band)', 'q.jpg')
     assert (unknown['wiki_title'], unknown['image_url']) == (None, None)
+
+
+def test_artists_without_a_page_are_left_out_of_the_catalog(repo):
+    data = pd.DataFrame([{'song': s, 'year': 2000, 'artist': a, 'genre': 'rock', 'lyrics': LYRICS}
+                         for a, s in (('queen', 'one'), ('glee-cast', 'two'), ('not-looked-up', 'three'))])
+    pages = {'queen': {'artist': 'queen', 'wiki_title': 'Queen (band)', 'image_url': 'q.jpg', 'source': 'exact'},
+             'glee-cast': {'artist': 'glee-cast', 'wiki_title': '', 'image_url': '', 'source': 'none'}}
+
+    refresh(repo, data, pages=pages)
+
+    assert sorted(a['name'] for a in repo.list_artists()) == ['not-looked-up', 'queen']

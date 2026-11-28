@@ -39,7 +39,7 @@ from collections import defaultdict
 import pandas as pd
 
 # Own
-from baking.artist_pages import PAGES_FILE, load_pages
+from baking.artist_pages import NONE, PAGES_FILE, load_pages
 from baking.main import resolve_path
 from baking.main.repository import DynamoRepository, schema
 
@@ -261,13 +261,19 @@ def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=M
     :param max_songs: maximum number of songs loaded by artist
     :param max_artists: number of artists (the ones with most songs in the dataset) loaded
     :param cover_artists: number of cover artists
-    :param pages: artist slug -> row of the artist pages list (baking.artist_pages.load_pages), optional
+    :param pages: artist slug -> row of the artist pages list (baking.artist_pages.load_pages), optional; artists
+        the list marks `none` (no music page: compilations, TV casts, unknown acts) are left out of the catalog
     :return: number of songs loaded
     """
     logger.info('Loading songs data to DynamoDB')
+    pages = pages or {}
+    without_page = {slug for slug, row in pages.items() if row.get('source') == NONE}
+    if without_page:
+        song_data = song_data[~song_data['artist'].astype(str).isin(without_page)]
+        logger.info(f'{len(without_page)} artists without a Wikipedia page are left out')
     genres, artists, songs = build_catalog(song_data, max_songs=max_songs, max_artists=max_artists,
                                            cover_artists=cover_artists)
-    attach_pages(artists, pages or {})
+    attach_pages(artists, pages)
     assign_stable_ids(repository, genres, artists, songs)
     totals = {'artists': len(artists), 'songs': len(songs)}
     repository.save_catalog(genres=genres, artists=artists, songs=songs, totals=totals)
