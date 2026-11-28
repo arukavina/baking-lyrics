@@ -2,6 +2,7 @@
 Serving of the lyrics model bundle (see ml/BUNDLE.md) for the generation endpoints.
 
 Where the bundle comes from:
+
 - MODEL_DIR: a local bundle directory (development and tests); S3 is not used.
 - otherwise s3://MODEL_BUCKET/MODEL_PREFIX/<version>/, where <version> is MODEL_VERSION when set, else the
   version named by MODEL_PREFIX/latest.json. Files are downloaded once into MODEL_CACHE_DIR/<version>/
