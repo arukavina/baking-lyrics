@@ -2,6 +2,9 @@
 Seeding (baking.refresh_database): cleaning rules, ids, cover artists and the CLI, on moto.
 """
 
+# Generic
+import datetime
+
 # Libs
 import pandas as pd
 import pytest
@@ -45,6 +48,26 @@ def test_cleaning_rules():
     assert [s['title'] for s in songs] == ['Ok']
     assert genres == [{'id': 1, 'name': 'Rock'}]
     assert artists[0]['clean_name'] == 'A Band'
+
+
+def test_songs_without_a_year_are_kept_without_a_date():
+    data = rows(('dated', 1999, 'a-band', 'rock', LYRICS), ('undated', None, 'a-band', 'rock', LYRICS))
+
+    _, _, songs = build_catalog(data)
+
+    assert [(s['title'], s['publication_date']) for s in songs] == [
+        ('Dated', datetime.datetime(1999, 1, 1)), ('Undated', None)]
+
+
+def test_songs_without_a_year_are_served_with_a_null_date(repo, client):
+    refresh(repo, rows(('undated', None, 'a-band', 'rock', LYRICS)))
+
+    song = repo.list_songs()[0]
+    response = client.get(f"/api/v1/songs/{song['id']}")
+
+    assert song['publication_date'] is None
+    assert response.status_code == 200
+    assert response.json['publication_date'] is None
 
 
 def test_max_songs_per_artist_and_max_artists():

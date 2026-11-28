@@ -149,8 +149,8 @@ def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ART
             artist_str = _clean_text(song['artist'])
             song_str = _clean_text(song['song'])
             genre_str = _clean_text(song['genre'])
-            year = int(song['year'])
-            publication_date = datetime.datetime(year, 1, 1)
+            # songdata.csv songs have no year: keep them without a publication date
+            publication_date = None if pd.isna(song['year']) else datetime.datetime(int(song['year']), 1, 1)
         except (TypeError, ValueError):
             logger.debug('Failed while parsing record ({}): {} | {} | {}'.format(i, song['artist'], song['song'],
                                                                                 song['genre']))
