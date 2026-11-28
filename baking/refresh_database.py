@@ -18,7 +18,9 @@ slug, title); only records the catalog does not hold yet get new ids, from the i
 data no longer produces are deleted, except artists that generated songs were made for: they are retired (kept
 for their generated songs and the stats, left out of the artist lists). Generated songs and shares are kept.
 
-Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset, ties broken by id.
+Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset. Ties are broken by a
+stable hash of the artist name: the prepared data caps songs per artist, so many artists tie, and breaking ties by
+id (alphabetical) would only ever show artists starting with a digit or an A.
 
 Programmatic usage (e.g. tests):
     refresh(repository, read_song_data(path))
@@ -27,6 +29,7 @@ Programmatic usage (e.g. tests):
 # Generic
 import argparse
 import datetime
+import hashlib
 import logging
 import os
 from collections import defaultdict
@@ -105,6 +108,11 @@ def _valid_lyrics(song, i):
     return lyrics
 
 
+def _tie_breaker(name):
+    """A stable, alphabet independent order for artists with the same song count."""
+    return hashlib.sha256(name.encode('utf-8')).hexdigest()
+
+
 def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ARTISTS, cover_artists=COVER_ARTISTS):
     """
     Applies the cleaning rules and assigns ids.
@@ -176,7 +184,7 @@ def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ART
         })
         loaded[song['artist']] = loaded.get(song['artist'], 0) + 1
 
-    ranked = sorted(artists.values(), key=lambda a: (-dataset_count[a['id']], a['id']))
+    ranked = sorted(artists.values(), key=lambda a: (-dataset_count[a['id']], _tie_breaker(a['name'])))
     for artist in ranked[:cover_artists]:
         artist['cover'] = True
 
