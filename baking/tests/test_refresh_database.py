@@ -69,6 +69,20 @@ def test_cover_artists_are_the_ones_with_most_songs_in_the_dataset():
     assert {a['clean_name']: a['cover'] for a in artists} == {'First': False, 'Second': True, 'Third': True}
 
 
+
+def test_cover_artist_ties_are_not_broken_alphabetically():
+    names = [f'artist {i:02d}' for i in range(40)]
+    data = rows(*[(f'{name} song {j}', 2000, name, 'pop', LYRICS) for name in names for j in range(2)])
+
+    _, artists, _ = build_catalog(data, cover_artists=8)
+    covers = [a['name'] for a in artists if a['cover']]
+    _, again, _ = build_catalog(data, cover_artists=8)
+
+    assert len(covers) == 8
+    assert covers != names[:8]
+    assert covers == [a['name'] for a in again if a['cover']]
+
+
 def test_extra_columns_are_ignored_and_missing_ones_fail():
     data = rows(('ok', 2001, 'band', 'rock', LYRICS)).assign(language='en')
 
@@ -189,3 +203,14 @@ def test_cli(repo, capsys):
     assert len(repo.list_songs()) == 6
     assert repo.get_artist(1)['cover'] is True  # the only artist is in the top 16
     assert repo.get_stats()['songs_generated'] == 2
+
+
+def test_cli_max_artists(repo, tmp_path):
+    data = rows(*[(f'{name} song {j}', 2000, name, 'pop', LYRICS) for name, n in (('big', 3), ('mid', 2), ('small', 1))
+                  for j in range(n)])
+    path = tmp_path / 'catalog.csv'
+    data.to_csv(path, index=False)
+
+    main(['--data', str(path), '--prefix', TABLE_PREFIX, '--max-artists', '2'])
+
+    assert sorted(a['name'] for a in repo.list_artists()) == ['big', 'mid']

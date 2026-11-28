@@ -9,7 +9,8 @@ lyrics; an `index` column and extra columns are ignored), so the ML pipeline's c
 Defaults: --data from DATA_FILE_PATH (else baking/resources/lyrics.csv), --prefix from BAKING_TABLE_PREFIX,
 --region from AWS_REGION / AWS_DEFAULT_REGION, --endpoint-url from DYNAMODB_ENDPOINT_URL.
 
-Rules (unchanged from the SQL version): the MAX_ARTISTS artists with the most songs in the dataset, at most
+Rules (unchanged from the SQL version): the `--max-artists` (default MAX_ARTISTS) artists with the most songs in the
+dataset, at most
 `max_songs` songs each, skipping empty, too short, instrumental and "tekst" placeholder lyrics.
 
 Ids are stable across reseeds, whatever the CSV: they follow the natural key of each record, never the dataset
@@ -18,7 +19,9 @@ slug, title); only records the catalog does not hold yet get new ids, from the i
 data no longer produces are deleted, except artists that generated songs were made for: they are retired (kept
 for their generated songs and the stats, left out of the artist lists). Generated songs and shares are kept.
 
-Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset, ties broken by id.
+Cover (front page) artists: the `cover_artists` artists with the most songs in the dataset. Ties are broken by a
+stable hash of the artist name: the prepared data caps songs per artist, so many artists tie, and breaking ties by
+id (alphabetical) would only ever show artists starting with a digit or an A.
 
 Programmatic usage (e.g. tests):
     refresh(repository, read_song_data(path))
@@ -27,6 +30,7 @@ Programmatic usage (e.g. tests):
 # Generic
 import argparse
 import datetime
+import hashlib
 import logging
 import os
 from collections import defaultdict
@@ -105,6 +109,11 @@ def _valid_lyrics(song, i):
     return lyrics
 
 
+def _tie_breaker(name):
+    """A stable, alphabet independent order for artists with the same song count."""
+    return hashlib.sha256(name.encode('utf-8')).hexdigest()
+
+
 def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ARTISTS, cover_artists=COVER_ARTISTS):
     """
     Applies the cleaning rules and assigns ids.
@@ -176,7 +185,7 @@ def build_catalog(song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ART
         })
         loaded[song['artist']] = loaded.get(song['artist'], 0) + 1
 
-    ranked = sorted(artists.values(), key=lambda a: (-dataset_count[a['id']], a['id']))
+    ranked = sorted(artists.values(), key=lambda a: (-dataset_count[a['id']], _tie_breaker(a['name'])))
     for artist in ranked[:cover_artists]:
         artist['cover'] = True
 
@@ -232,7 +241,8 @@ def assign_stable_ids(repository, genres, artists, songs):
     return genres, artists, songs
 
 
-def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, cover_artists=COVER_ARTISTS):
+def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ARTISTS,
+            cover_artists=COVER_ARTISTS):
     """
     Writes the catalog built from `song_data` with stable ids (see assign_stable_ids) and deletes the catalog
     records it no longer contains (artists of generated songs are retired instead). The stats totals are the
@@ -240,11 +250,13 @@ def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, cover_artists
     :param repository: Repository
     :param song_data: DataFrame (see build_catalog)
     :param max_songs: maximum number of songs loaded by artist
+    :param max_artists: number of artists (the ones with most songs in the dataset) loaded
     :param cover_artists: number of cover artists
     :return: number of songs loaded
     """
     logger.info('Loading songs data to DynamoDB')
-    genres, artists, songs = build_catalog(song_data, max_songs=max_songs, cover_artists=cover_artists)
+    genres, artists, songs = build_catalog(song_data, max_songs=max_songs, max_artists=max_artists,
+                                           cover_artists=cover_artists)
     assign_stable_ids(repository, genres, artists, songs)
     totals = {'artists': len(artists), 'songs': len(songs)}
     repository.save_catalog(genres=genres, artists=artists, songs=songs, totals=totals)
@@ -283,6 +295,8 @@ def parse_args(argv=None):
     parser.add_argument('--endpoint-url', default=os.environ.get('DYNAMODB_ENDPOINT_URL') or None,
                         help='DynamoDB endpoint, e.g. a moto server or DynamoDB Local')
     parser.add_argument('--max-songs', type=int, default=MAX_SONGS_PER_ARTIST, help='songs per artist')
+    parser.add_argument('--max-artists', type=int, default=MAX_ARTISTS,
+                        help='artists loaded; match the --max-artists used by ml.data for its catalog.csv')
     parser.add_argument('--cover-artists', type=int, default=COVER_ARTISTS, help='number of cover artists')
     parser.add_argument('--artificial', type=int, default=0,
                         help='also create this many "Dummy" generated songs (demo data)')
@@ -296,7 +310,8 @@ def main(argv=None):
     repository = DynamoRepository(prefix=args.prefix, region=args.region, endpoint_url=args.endpoint_url,
                                   cache_seconds=0)
     song_data = read_song_data(args.data)
-    loaded = refresh(repository, song_data, max_songs=args.max_songs, cover_artists=args.cover_artists)
+    loaded = refresh(repository, song_data, max_songs=args.max_songs, max_artists=args.max_artists,
+                     cover_artists=args.cover_artists)
     if args.artificial:
         create_artificial(repository, song_data, args.artificial)
     print(f'{loaded} songs loaded into {args.prefix}-catalog ({args.region})')
