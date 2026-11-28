@@ -30,6 +30,11 @@ dev = [
     "pytest-cov>=6.0",
     "ruff>=0.8",
 ]
+docs = [
+    "furo>=2025.12.19",
+    "myst-parser>=5.2.0",
+    "sphinx>=9.1.1",
+]
 train = [
     "torch>=2.9",
     "onnx>=1.17",
