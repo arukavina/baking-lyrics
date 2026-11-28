@@ -43,3 +43,13 @@ html_theme_options = {
     'source_branch': 'master',
     'source_directory': 'docs/',
 }
+
+
+def _link_included_readme(app, relative_path, parent_docname, content):
+    """ml/README.md links BUNDLE.md for GitHub; on this site that page is bundle.md (Linux paths are case sensitive)."""
+    if relative_path.name == 'README.md':
+        content[0] = content[0].replace('](BUNDLE.md)', '](bundle.md)')
+
+
+def setup(app):
+    app.connect('include-read', _link_included_readme)
