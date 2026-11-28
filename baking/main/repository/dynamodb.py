@@ -164,6 +164,8 @@ class DynamoRepository(Repository):
             'formation_date': _from_iso(item.get('formation_date')),
             'genre_id': _int(genre_id, None),
             'genre': {'id': _int(genre_id), 'name': item.get('genre_name')} if genre_id is not None else None,
+            'wiki_title': item.get('wiki_title'),
+            'image_url': item.get('image_url'),
         }
 
     def _song(self, item):
@@ -220,6 +222,8 @@ class DynamoRepository(Repository):
             'formation_date': _to_iso(artist.get('formation_date')),
             'genre_id': genre_id,
             'genre_name': genre_name,
+            'wiki_title': artist.get('wiki_title'),
+            'image_url': artist.get('image_url'),
         })
 
     @staticmethod

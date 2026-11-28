@@ -232,4 +232,5 @@ def test_artificial_song_shape(client):
                                      'member_since': None}
     assert response.json['base_artist'] == {'id': 1, 'name': 'beyonce-knowles', 'clean_name': 'Beyonce Knowles',
                                             'cover': False, 'country': 'US',
-                                            'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop'}
+                                            'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop',
+                                            'wiki_title': None, 'image_url': None}

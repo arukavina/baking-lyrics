@@ -13,7 +13,8 @@ from baking.tests.conftest import add_artists
 
 # The JSON served before the move to DynamoDB, byte for byte
 SEEDED_ARTIST = {'id': 1, 'name': 'beyonce-knowles', 'clean_name': 'Beyonce Knowles', 'cover': False,
-                 'country': 'US', 'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop'}
+                 'country': 'US', 'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop',
+                 'wiki_title': None, 'image_url': None}
 
 
 def _add_artists(app_repo, count, cover, formation_date=None):

@@ -58,7 +58,7 @@ The Kaggle "55000+ Song Lyrics" `songdata.csv` (`artist,song,link,text`) can be 
 
 Cleaning rules: drop empty lyrics, "instrumental" and "not available" notes, the Polish "tekst piosenki" placeholders, texts under 30 or over 1,200 words and texts with more than 10 percent non Latin letters; remove `[Chorus]` style annotations and section header lines; normalise whitespace and quotes; keep at most one blank line between stanzas; keep English songs only (fastText `lid.176` lite model through `fast-langdetect`, a stopword heuristic when it is not installed); deduplicate identical lyrics and identical artist and title pairs.
 
-Selection: artists with at least 20 songs, the `--max-artists` with most songs (900 by default, 1,500 for production with `songdata.csv`), at most 150 songs per artist (random with a fixed seed), split 90 / 5 / 5 by song within each artist.
+Selection: artists listed with `--exclude-artists` are skipped first (production passes the backend's `baking/resources/artist_pages.csv`, whose rows marked `none` are compilations, TV casts and acts without an English Wikipedia music page), then artists with at least 20 songs, the `--max-artists` with most songs (900 by default, 1,500 for production with `songdata.csv`), at most 150 songs per artist (random with a fixed seed), split 90 / 5 / 5 by song within each artist.
 
 `catalog.csv` has the original Kaggle columns and only the songs of the artists the model knows; seed the API catalog from it, with the same `--max-artists`, so the site's artists and the model's artist ids match: `python -m baking.refresh_database --data ml/data/processed/catalog.csv --max-artists 1500`.
 
@@ -90,7 +90,7 @@ Use `uv run --no-sync` from then on, otherwise `uv run` may put the CPU wheel ba
 $env:KAGGLE_API_TOKEN = "<your token>"
 uv run --no-sync python -m ml.data --kaggle --out ml\data\processed
 # or, with the raw CSVs already downloaded (the production settings):
-uv run --no-sync python -m ml.data --csv ml\data\lyrics.csv --extra-songdata ml\data\songdata.csv --max-artists 1500 --out ml\data\processed
+uv run --no-sync python -m ml.data --csv ml\data\lyrics.csv --extra-songdata ml\data\songdata.csv --max-artists 1500 --exclude-artists baking\resources\artist_pages.csv --out ml\data\processed
 Invoke-WebRequest https://nlp.stanford.edu/data/glove.6B.zip -OutFile ml\data\glove.6B.zip
 uv run --no-sync python -m ml.train --data ml\data\processed --out ml\runs\local --preset colab-t4 --glove ml\data\glove.6B.zip
 uv run --no-sync python -m ml.train --data ml\data\processed --out ml\runs\local --eval-only --split test

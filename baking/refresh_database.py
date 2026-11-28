@@ -39,6 +39,7 @@ from collections import defaultdict
 import pandas as pd
 
 # Own
+from baking.artist_pages import NONE, PAGES_FILE, load_pages
 from baking.main import resolve_path
 from baking.main.repository import DynamoRepository, schema
 
@@ -241,8 +242,16 @@ def assign_stable_ids(repository, genres, artists, songs):
     return genres, artists, songs
 
 
+def attach_pages(artists, pages):
+    """Copies each artist's Wikipedia page and picture from the artist pages list (see baking.artist_pages)."""
+    for artist in artists:
+        row = pages.get(artist['name']) or {}
+        artist['wiki_title'] = row.get('wiki_title') or None
+        artist['image_url'] = row.get('image_url') or None
+
+
 def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=MAX_ARTISTS,
-            cover_artists=COVER_ARTISTS):
+            cover_artists=COVER_ARTISTS, pages=None):
     """
     Writes the catalog built from `song_data` with stable ids (see assign_stable_ids) and deletes the catalog
     records it no longer contains (artists of generated songs are retired instead). The stats totals are the
@@ -252,11 +261,19 @@ def refresh(repository, song_data, max_songs=MAX_SONGS_PER_ARTIST, max_artists=M
     :param max_songs: maximum number of songs loaded by artist
     :param max_artists: number of artists (the ones with most songs in the dataset) loaded
     :param cover_artists: number of cover artists
+    :param pages: artist slug -> row of the artist pages list (baking.artist_pages.load_pages), optional; artists
+        the list marks `none` (no music page: compilations, TV casts, unknown acts) are left out of the catalog
     :return: number of songs loaded
     """
     logger.info('Loading songs data to DynamoDB')
+    pages = pages or {}
+    without_page = {slug for slug, row in pages.items() if row.get('source') == NONE}
+    if without_page:
+        song_data = song_data[~song_data['artist'].astype(str).isin(without_page)]
+        logger.info(f'{len(without_page)} artists without a Wikipedia page are left out')
     genres, artists, songs = build_catalog(song_data, max_songs=max_songs, max_artists=max_artists,
                                            cover_artists=cover_artists)
+    attach_pages(artists, pages)
     assign_stable_ids(repository, genres, artists, songs)
     totals = {'artists': len(artists), 'songs': len(songs)}
     repository.save_catalog(genres=genres, artists=artists, songs=songs, totals=totals)
@@ -297,6 +314,8 @@ def parse_args(argv=None):
     parser.add_argument('--max-songs', type=int, default=MAX_SONGS_PER_ARTIST, help='songs per artist')
     parser.add_argument('--max-artists', type=int, default=MAX_ARTISTS,
                         help='artists loaded; match the --max-artists used by ml.data for its catalog.csv')
+    parser.add_argument('--pages', default=PAGES_FILE,
+                        help='artist pages CSV: Wikipedia page and picture of each artist (default: %(default)s)')
     parser.add_argument('--cover-artists', type=int, default=COVER_ARTISTS, help='number of cover artists')
     parser.add_argument('--artificial', type=int, default=0,
                         help='also create this many "Dummy" generated songs (demo data)')
@@ -311,7 +330,7 @@ def main(argv=None):
                                   cache_seconds=0)
     song_data = read_song_data(args.data)
     loaded = refresh(repository, song_data, max_songs=args.max_songs, max_artists=args.max_artists,
-                     cover_artists=args.cover_artists)
+                     cover_artists=args.cover_artists, pages=load_pages(args.pages))
     if args.artificial:
         create_artificial(repository, song_data, args.artificial)
     print(f'{loaded} songs loaded into {args.prefix}-catalog ({args.region})')

@@ -28,7 +28,8 @@ def test_genre_list_includes_artists(client):
     assert response.json[0]['name'] == 'Pop'
     assert response.json == [{
         'artists': [{'id': 1, 'name': 'beyonce-knowles', 'clean_name': 'Beyonce Knowles', 'cover': False,
-                     'country': 'US', 'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop'}],
+                     'country': 'US', 'formation_date': '1986-06-28T00:00:00', 'genre': 'Pop',
+                     'wiki_title': None, 'image_url': None}],
         'id': 1,
         'name': 'Pop',
     }]

@@ -122,6 +122,12 @@ Seed the catalog:
 - Generated songs from the Heroku era (the old SQL database) are not migrated, so their old shared links answer 404 (or, once new generated songs reach the same id, show a different song: generated song ids start again at 1).
 - `--artificial 30` also creates 30 demo generated songs (model `Dummy`).
 
+Artist pictures:
+
+- `baking/resources/artist_pages.csv` is the reviewed list of each artist's English Wikipedia page and picture (`artist`, `wiki_title`, `image_url`, `source`). Seeding copies it into the catalog (`--pages` picks another file) and the API returns `wiki_title` and `image_url` with every artist; the frontend only looks Wikipedia up itself for artists the list does not hold yet. Artists the list marks `none` (compilations, TV casts and acts without an English Wikipedia page) are left out of the catalog; they stay in the model's training data.
+- `uv run python -m baking.artist_pages --catalog ml/data/processed/catalog.csv` adds the artists missing from the list; `--refresh` looks every artist up again. A page only counts when its Wikipedia short description is about music, so "Scorpions" finds the band rather than the arachnid. Seed again afterwards to publish the changes.
+- To fix a wrong page, set `wiki_title`, set `source` to `manual` and clear `image_url`; the next run fills the picture in and never overwrites manual rows. `source` is `exact` (the name or a "(band)", "(musician)"... variant), `search` (full text search), `manual` or `none` (nothing about music found).
+
 ## Run
 
 - Start the API: `uv run flask --app baking.manage run --port 9090`
