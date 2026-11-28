@@ -101,6 +101,7 @@ ENV/
 # Models
 *.iml
 *.yaml
+!.readthedocs.yaml
 *.h5
 *.hdf5
 *.pickle
