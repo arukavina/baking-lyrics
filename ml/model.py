@@ -5,6 +5,7 @@ embedding and a learned genre embedding. Three stacked LSTM layers (hidden 1024,
 embedding size), output softmax tied to the input embedding.
 
 Regularisation (Merity et al. 2017, "Regularizing and Optimizing LSTM Language Models"):
+
 - embedding dropout: whole word types are dropped from the embedding matrix;
 - locked (variational) dropout: one mask per sequence on the input, between layers and on the output;
 - weight drop (DropConnect) on each layer's hidden-to-hidden matrix, applied only in training through

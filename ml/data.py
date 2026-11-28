@@ -2,19 +2,21 @@
 
 Input: the Kaggle "380,000 lyrics from MetroLyrics" dataset (gyani95, version 2), columns
 `index,song,year,artist,genre,lyrics`, or any local CSV with that schema (an extra leading unnamed index
-column, as in the "*_cleaned_lyrics.csv" derivatives, is detected and dropped).
+column, as in the `*_cleaned_lyrics.csv` derivatives, is detected and dropped).
 
 Output directory (default `ml/data/processed`):
+
 - `songs.parquet`: cleaned songs with `split` (train/val/test, by song), `artist_id`, `genre_id`, `title`;
 - `catalog.csv`: the same songs in the original Kaggle schema, for `python -m baking.refresh_database --data`;
 - `artists.json`: artist slug -> {id, display_name, genre, genre_id, songs} plus the genre ids;
 - `prep_meta.json`: the preparation settings, counts and a content hash of the prepared data.
 
-Prefer the raw Kaggle `lyrics.csv`: it keeps line breaks and punctuation. The flattened "*_cleaned_lyrics.csv"
+Prefer the raw Kaggle `lyrics.csv`: it keeps line breaks and punctuation. The flattened `*_cleaned_lyrics.csv`
 derivatives lost both; for them line breaks are restored with a capitalisation heuristic (see `restore_lines`).
 The Kaggle "55000+ Song Lyrics" `songdata.csv` can be merged with `--extra-songdata`.
 
-Usage:
+Usage::
+
     python -m ml.data --kaggle --out ml/data/processed
     python -m ml.data --csv path/to/lyrics.csv --out ml/data/processed
     python -m ml.data --csv lyrics.csv --extra-songdata songdata.csv --out ml/data/processed
