@@ -41,22 +41,29 @@ The vast corpus contains all the lyrics of the most popular bands and singers of
 
 ## Install dependencies
 
-- Run `uv sync` from the repo root to create `.venv` with the API and dev tools.
-- For the TensorFlow models run `uv sync --extra ml` instead (the trained model files are also required, see below).
+- Run `uv sync --extra ml` from the repo root to create `.venv` with the API, the model runtime (onnxruntime and numpy) and the dev tools.
+- Without `--extra ml` the API still runs, but the generation endpoints answer 503.
+- To train or export a model, add the training tools (PyTorch and friends): `uv sync --extra ml --group train`. The API image never installs them.
 
 ## Models and data
 
-- Request the current models and the `lyrics.csv` dataset from [Andrei Rukavina](mailto:rukavina.andrei@gmail.com).
-- Put the model files under `baking/resources/models/` and `lyrics.csv` under `baking/resources/`.
-- No dataset yet? Seed with the small sample instead: set `DATA_FILE_PATH=baking/resources/lyrics_4_tests.csv` before running the seed command.
+- Request the `lyrics.csv` dataset and a model bundle from [Andrei Rukavina](mailto:rukavina.andrei@gmail.com), or train your own with [ml/README.md](ml/README.md).
+- Put `lyrics.csv` under `baking/resources/` and point `MODEL_DIR` at the bundle folder (see [Model](#model)).
+- No dataset yet? Seed with the small sample instead: pass `--data baking/resources/lyrics_4_tests.csv` to the seed command.
+- Any CSV with the Kaggle lyrics columns (`song`, `year`, `artist`, `genre`, `lyrics`) works, for example the `catalog.csv` produced by the ML pipeline.
 
 ## Environment variables
 
 - `APP_CONFIG_FILE` (required): path to the config file, for example `config/development.py`.
 - `SECRET_KEY`: required with `config/production.py`; development and testing fall back to a dev only key.
-- `DATABASE_URL` (optional): overrides the default SQLite database (`baking/resources/flask_bakinglyrics_main.db`). `postgres://` URLs are accepted.
+- `BAKING_TABLE_PREFIX` (optional): DynamoDB table name prefix, `baking-lyrics` by default. Use your own, such as `baking-lyrics-dev`, for development against real AWS.
+- `AWS_REGION` or `AWS_DEFAULT_REGION` (optional): region of the tables and the S3 bucket, `us-east-1` by default. Lambda sets `AWS_REGION` itself.
+- `DYNAMODB_ENDPOINT_URL` (optional): DynamoDB endpoint for local development, such as a moto server (`http://localhost:5000`) or DynamoDB Local.
+- `ALLOWED_ORIGINS`: comma separated browser origins allowed to call `/api/*` (CORS). Required with `config/production.py` (the app refuses to start without it); development and testing fall back to `http://localhost:3000`.
 - `BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` (optional): commit sha and ISO 8601 commit date reported by `GET /api/v1/general/version`; when both are unset they are read from git, and they are `null` if git is unavailable.
-- `RATELIMIT_STORAGE_URI` (optional): storage for rate limits, `memory://` by default; use a shared store such as `redis://` with several workers. Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`).
+- `GENERATION_RATE_LIMIT` (optional): per client limit of the generation routes, `5 per minute;50 per day` by default (see [Run](#run)).
+- `MODEL_DIR`, `MODEL_BUCKET`, `MODEL_PREFIX`, `MODEL_VERSION`, `MODEL_PRELOAD` (optional): where the lyrics model comes from, see [Model](#model).
+- AWS credentials: the usual boto3 sources (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`, SSO). With a moto server any non empty fake values work.
 
 These can also go in a `.env` file at the repo root (it is gitignored).
 
@@ -64,136 +71,167 @@ Windows PowerShell:
 
 ```powershell
 $env:APP_CONFIG_FILE = 'config/development.py'
-$env:SECRET_KEY = 'change-me'                     # optional
-$env:DATABASE_URL = 'sqlite:///baking-lyrics.db'  # optional
+$env:SECRET_KEY = 'change-me'                      # optional
+$env:BAKING_TABLE_PREFIX = 'baking-lyrics-dev'     # optional
+$env:DYNAMODB_ENDPOINT_URL = 'http://localhost:5000'  # optional, moto server
+$env:MODEL_DIR = 'ml/bundles/2026.11.0'            # optional, local model bundle
 ```
 
 macOS/Linux:
 
 ```bash
 export APP_CONFIG_FILE=config/development.py
-export SECRET_KEY=change-me                      # optional
-export DATABASE_URL=sqlite:///baking-lyrics.db   # optional
+export SECRET_KEY=change-me                       # optional
+export BAKING_TABLE_PREFIX=baking-lyrics-dev      # optional
+export DYNAMODB_ENDPOINT_URL=http://localhost:5000  # optional, moto server
+export MODEL_DIR=ml/bundles/2026.11.0             # optional, local model bundle
 ```
+
+## Data (DynamoDB)
+
+The API stores everything in five on-demand DynamoDB tables named after `BAKING_TABLE_PREFIX`:
+
+- `<prefix>-catalog`: genres, artists and songs.
+- `<prefix>-generated`: generated songs and titles.
+- `<prefix>-shares`: one item per share of a generated song.
+- `<prefix>-counters`: id sequences and the totals behind `GET /api/v1/general/stats`.
+- `<prefix>-ratelimit`: per client share and generation rate limit windows, removed by DynamoDB TTL on `ttl`.
+
+Keys, indexes and TTL are defined in one place, `baking/main/repository/schema.py`.
+
+Pick one of these for local development:
+
+- A local moto server, no AWS account needed: `uvx --from "moto[server]" moto_server -p 5000`, then set `DYNAMODB_ENDPOINT_URL=http://localhost:5000` and fake AWS credentials. Its data lives in memory and is lost when it stops.
+- Real AWS tables with your own prefix, such as `BAKING_TABLE_PREFIX=baking-lyrics-dev`, and your AWS credentials.
+
+Create the tables (idempotent: existing tables are kept, TTL is enabled where needed):
+
+- `uv run python -m baking.create_tables --wait`
+- Options: `--prefix`, `--region` and `--endpoint-url` override the environment variables.
+
+Seed the catalog:
+
+- `uv run python -m baking.refresh_database --data baking/resources/lyrics.csv`
+- It keeps the 900 artists with the most songs and at most 10 songs each, skipping empty, too short, instrumental and placeholder lyrics.
+- The 16 artists with the most songs in the dataset are flagged as cover artists, the ones `GET /api/v1/artists/random/<n>` picks from (`--cover-artists` changes the number).
+- Ids are stable across reseeds, even with a different CSV: a genre keeps its id by name, an artist by its `name` slug (such as `bee-gees`) and a song by artist slug and title. Only records the catalog does not hold yet get new ids, from the id sequences, so ids are never reused.
+- Records no longer in the data are deleted, except artists that generated songs were made for: those are retired, which keeps them readable (`GET /api/v1/artists/<id>`, the `base_artist` of their generated songs, the top artists of the stats) but leaves them out of the artist lists, search, genres and the front page. Seeding them again brings them back with the same id. Generated songs and shares are always kept.
+- The `artists` total of `GET /api/v1/general/stats` is the number of artists just seeded (retired ones are not counted).
+- Generated songs from the Heroku era (the old SQL database) are not migrated, so their old shared links answer 404 (or, once new generated songs reach the same id, show a different song: generated song ids start again at 1).
+- `--artificial 30` also creates 30 demo generated songs (model `Dummy`).
 
 ## Run
 
-- Apply migrations: `uv run flask --app baking.manage db upgrade`
-- Seed the database: `uv run python -m baking.refresh_database` (run it after the migrations; it wipes and reloads the data)
 - Start the API: `uv run flask --app baking.manage run --port 9090`
 - Open the Swagger UI at http://localhost:9090/api/v1/
+- Shares are limited to 10 per minute and 100 per day per client (`SHARE_RATE_LIMIT`), counted in the ratelimit table so the limit holds across processes; the client is the source IP of the Function URL request, else the left-most `X-Forwarded-For` address.
+- Generations are limited the same way to 5 per minute and 50 per day per client (`GENERATION_RATE_LIMIT`), one budget shared by the two song generation routes and the title generation route. Only valid requests count (an unknown artist or song is rejected first), and a client over the limit gets `429` with `{"message": "Too many generations from this address, try again later."}`.
+- Both limits are off in the testing config (`RATELIMIT_ENABLED = False`).
+- The catalog is read only through the API: genres, artists and songs change only by seeding.
+- The list endpoints `GET /api/v1/artists/`, `/songs/`, `/artificial_songs/` and `/artificial_titles/` are paginated with the query parameters `page` (from 1) and `per_page` (2, 10, 20, 30, 40 or 50, 10 by default) and answer `{"items": [...], "page", "pages", "per_page", "total"}`; a page past the end has no items.
+- Artists and songs are listed by id, generated songs and titles most recent first. A page reads only what it shows (a Query with `Limit`, or an id range of the `by_entity` index newest first for generated songs and titles), so no list ever returns or reads a whole table.
 
 ## Test and lint
 
-- Tests: `uv run pytest` (no environment variables needed, tests build their own app and database)
+- Tests: `uv run pytest` (no environment variables or AWS account needed: tests run against DynamoDB and S3 mocked by moto)
+- The model tests that train and export a tiny model on the fly run only when the `train` group is installed; the others use a fake generator.
 - Lint: `uv run ruff check .`
 
-# Models
+# Model
 
-While developing the app we tried many different models and approaches.
+Lyrics and titles come from one conditional word level LSTM language model, trained in PyTorch and served with onnxruntime.
 
-## Deep-Learning models
+- Words: a 30,000 word lowercase vocabulary with punctuation, line and verse break tokens, and 300 d embeddings initialised from GloVe.
+- Style: learned artist and genre embeddings are fed at every step, so the chosen artist steers the style and the seed text is the prompt.
+- Network: three LSTM layers (AWD-LSTM regularisation, tied input and output embeddings), about 25 M parameters, a 100 MB ONNX file.
+- Titles: the model was trained on `lyrics <title> title`, so after writing the lyrics it writes their title.
+- Decoding: temperature, top-k and top-p sampling with a repetition penalty, stopping at the first line end after `number_words` generated words.
+- Length: the API clamps `number_words` to 1 to 300. Training songs are at most 400 tokens including the title, line breaks and punctuation, about 300 words of lyrics, so longer songs would go past anything the model has seen.
+- Seed text: the lyrics start with the whole seed, which does not count towards `number_words`; only its last 64 tokens are fed to the model as the prompt. The API accepts seeds of at most 300 characters and answers `411` with `{"message": "Seed can not be longer than 300 characters"}` otherwise (the same status as an empty seed).
 
-Text summarization is a problem in natural language processing of creating a short, accurate, and fluent summary of a source document.
+Training, evaluation and retraining are described in [ml/README.md](ml/README.md); the bundle format is in [ml/BUNDLE.md](ml/BUNDLE.md).
 
-The Encoder-Decoder recurrent neural network architecture developed for machine translation has proven effective when applied to the problem of text summarization.
+## Serving
 
-It can be difficult to apply this architecture in the Keras deep learning library, given some of the flexibility sacrificed to make the library clean, simple, and easy to use.
+- The API loads the model on the first generation request, so starting the API and the health check stay fast; `MODEL_PRELOAD=true` starts loading in the background when the app starts instead.
+- With `MODEL_DIR` set, the bundle is read from that folder.
+- Otherwise it is read from `s3://<MODEL_BUCKET>/<MODEL_PREFIX>/<version>/`, where the version is `MODEL_VERSION` when set, else the one named by `<MODEL_PREFIX>/latest.json`.
+- Downloaded files go to `/tmp/models/<version>/` (`MODEL_CACHE_DIR` changes it), are checked against the sha256 values in `config.json`, and are reused by later starts of the same Lambda environment. File names in `config.json` must be plain names (no `/`, `\`, `..` or absolute path) and the version a plain folder name, or the bundle is rejected before anything is downloaded.
+- A new version is picked up by new Lambda environments; publish it with `python -m ml.publish` and redeploy (or update any setting) to roll every environment over.
+- If the model cannot be loaded, the API keeps running: generation endpoints answer 503 and the error is logged; the load is retried after 5 minutes.
+- The generator is not thread safe, so each process keeps one model and runs one generation at a time; Lambda sends one request at a time to an environment anyway.
+- Generated songs store `lyrics-lstm/<version>` as their `model`.
+- The no seed song endpoint writes in the artist's style without a prompt; artists the model was not trained on get its generic style.
 
-# Skip-Thought Vectors
+| Variable | Default | Meaning |
+|---|---|---|
+| `MODEL_DIR` | unset | Local bundle folder; when set, S3 is not used |
+| `MODEL_BUCKET` | `bakinglyrics` (unset in development and tests) | S3 bucket of the bundles |
+| `MODEL_PREFIX` | `models/lyrics-lstm` | S3 prefix holding `latest.json` and one folder per version |
+| `MODEL_VERSION` | unset | Pins a version instead of `latest.json` |
+| `MODEL_PRELOAD` | `false` | Load at start in the background instead of on the first generation request |
+| `MODEL_CACHE_DIR` | `/tmp/models` | Download folder |
+| `MODEL_THREADS` | `1` | onnxruntime threads per generation (Lambda at 2048 MB gets about 1.16 vCPU although `os.cpu_count()` reports 2, so more threads only compete) |
 
-From [arXiv:1506.06726v1](https://arxiv.org/pdf/1506.06726.pdf) (June 22nd 2015)
-By: Ryan Kiros, Yukun Zhu, et. al.
+## History
 
-_This is Baking-Lyrics current model_
+2018: Keras notebooks on Colab, a word level LSTM per artist, separate encoder-decoder titlers and trigram models per band.
 
-The authors considered the following question: 
-'is there a task and a corresponding loss that will allow us to learn highly generic sentence representations?' 
+2019 to 2021: a hierarchical skip-thought model (verse encoder, verse sequence model with self attention conditioned on artist and genre, word decoder) served with TensorFlow and a separate LSTM titler; both were retired in 2026 for the single PyTorch and ONNX model above. The details are in the history section of [ml/README.md](ml/README.md#history).
 
-they gave evidence for this by proposing a model for learning high-quality sentence vectors without a particular supervised task in mind. Using word vector learning as inspiration, they proposed an objective function that abstracts the skip-gram model of [8] to the sentence level.  
-That is, instead of using a word to predict its surrounding context, they instead encode a sentence to predict the sentences around it.  
-Thus, any composition operator can be substituted as a sentence **encoder** and only the objective function becomes modified. 
+# AWS deployment
 
-The following figure illustrates the model:
+## Architecture
 
-![model](img/fig1.png "Skip-Thought Vectors model")
+- The frontend calls the API directly (with CORS) at the Lambda Function URL (auth type `NONE`).
+- The function `baking-lyrics-backend` (`us-east-1`) runs the container image built from the [Dockerfile](Dockerfile) on x86_64.
+- Inside the image the [AWS Lambda Web Adapter](https://github.com/awslabs/aws-lambda-web-adapter) extension forwards each request to gunicorn on port 8080, which serves the unchanged Flask app.
+- Data lives in the DynamoDB tables `baking-lyrics-*` (on demand capacity).
+- Model bundles and the lyrics dataset live in the S3 bucket `bakinglyrics` (bundles under `models/lyrics-lstm/`).
+- Images are stored in the ECR repository `baking-lyrics-backend`, which keeps the last 10 images.
 
-They called their model: **skip-thoughts** and vectors induced by our model are called **skip-thought vectors**.
+## Deploy workflow
 
-### Encoder-Decoder
+- [ci.yml](.github/workflows/ci.yml) runs lint and tests on every pull request.
+- [deploy.yml](.github/workflows/deploy.yml) runs on every push to `master` (and manually with "Run workflow"): it runs CI, builds the image for `linux/amd64`, pushes it to ECR tagged with the commit sha and `latest`, updates the Lambda function code, waits for the update and smoke tests the API.
+- The smoke test calls `GET /api/v1/general/ping`, checks that `GET /api/v1/general/version` reports the deployed commit, that `GET /api/v1/general/stats` answers 200 with a JSON object holding `artists` (so DynamoDB is reachable), and that a request with `Origin: https://baking-lyrics-web.vercel.app` gets that origin back in `Access-Control-Allow-Origin` (so `ALLOWED_ORIGINS` includes the frontend).
+- The deploy job runs in the GitHub environment `production` and assumes an AWS role through GitHub OIDC, so no AWS keys are stored in GitHub.
 
-**Encoder**. Let w1i,...,wNi be the words in sentences i where N is the number of words in the sentence. 
-At each time step, the encoder produces a hidden state ht/i which can be interpreted as the representation of the sequence
-w1i,...,wti. 
-The hidden state hNi thus represents the full sentence. To encode a sentence, we iterate the following sequence of equations (dropping the subscript i):
+The `production` environment needs these secrets:
 
-![model](img/equations1.png "Equation 1")
+| Secret | Value |
+|---|---|
+| `AWS_DEPLOY_ROLE_ARN` | ARN of the IAM role the workflow assumes (`baking-lyrics-github-deploy`) |
+| `AWS_REGION` | `us-east-1` |
+| `ECR_REPOSITORY` | `baking-lyrics-backend` |
+| `LAMBDA_FUNCTION_NAME` | `baking-lyrics-backend` |
+| `API_BASE_URL` | the Function URL, for example `https://<url-id>.lambda-url.us-east-1.on.aws` (no trailing slash) |
 
-where  ̄ht is the proposed state update at time-t,z-t is the update gate,rt is the reset gate () denotes a component-wise product. 
-oth update gates takes values between zero and one.Decoder.
+## Lambda configuration
 
-**The decoder** is a neural language model which conditions on the encoder output hi. 
-The computation is similar to that of the encoder except we introduce matrices Cz,Cr and C that are used to bias the update gate, 
-reset gate and hidden state computation by the sentence vector.  One decoder is used for the next sentences i+1 while a second decoder is used for the previous sentences i−1. 
-Separate parameters are used for each decoder with the exception of the vocabulary matrixV, which is the weight matrix connecting the decoder’s hidden state for computing a distribution over words. 
+These environment variables are set on the function:
 
-In what follows we describe the decoder for the next sentences i+1 although an analogous computation is used for the previous sentences i−1. 
-Let hti+1 denote the hidden state of the decoder at time-t. Decoding involves iterating through the following sequence of equations (dropping the subscript i+ 1):
+- `APP_CONFIG_FILE`: `config/production.py` (also the image default).
+- `SECRET_KEY`: a long random value, required by the production config.
+- `ALLOWED_ORIGINS`: comma separated origins allowed by CORS, required by the production config, for example `https://bakinglyrics.com,https://www.bakinglyrics.com,https://baking-lyrics-web.vercel.app`.
+- `BAKING_TABLE_PREFIX`: prefix of the DynamoDB tables, `baking-lyrics`.
+- `MODEL_BUCKET` and `MODEL_PREFIX` default to `bakinglyrics` and `models/lyrics-lstm` in the image; set `MODEL_VERSION` only to pin or roll back a model version.
 
-![model](img/equations2.png "Equation 2")
+`BAKING_COMMIT_SHA` and `BAKING_COMMIT_DATE` are not set on the function: the workflow bakes them into the image as build arguments, so `GET /api/v1/general/version` reports the deployed commit.
 
-Givenhti+1, the probability of wordwti+1given the previoust−1words and the encoder vector is
+The function uses 2048 MB of memory (about 1.16 vCPU, so the 100 MB model generates a 150 word song in about 2 to 3 seconds), a 30 second timeout and 1024 MB of ephemeral storage (`/tmp` holds the downloaded model); its execution role grants DynamoDB access to `baking-lyrics-*`, read access to `s3://bakinglyrics` and CloudWatch Logs.
 
-![model](img/equations3.png "Equation 3")
+## Run the container locally
 
-where v w,t i+1 denotes the row ofV corresponding to the word of w t i+1.  An analogous computation is performed for the previous sentences i−1.
+Build and run the same image the workflow deploys (Docker, or `nerdctl` with Rancher Desktop):
 
-Objective. Given a tuple (si−1,si,si+1), the objective optimized is the sum of the log-probabilities for the forward and backward sentences conditioned on the encoder representation
+```bash
+docker build -t baking-lyrics-backend --build-arg BAKING_COMMIT_SHA=$(git rev-parse HEAD) --build-arg BAKING_COMMIT_DATE=$(git log -1 --format=%cI) .
+docker run --rm -p 8080:8080 -e SECRET_KEY=change-me -e ALLOWED_ORIGINS=http://localhost:3000 baking-lyrics-backend
+curl http://localhost:8080/api/v1/general/ping
+```
 
-![model](img/equations4.png "Equation 4")
-
-## Encoder-Decoder Architecture
-
-*Based on: [machinelearningmastery.com](https://machinelearningmastery.com/encoder-decoder-models-text-summarization-keras/)*
-
-The Encoder-Decoder architecture is a way of organizing recurrent neural networks for sequence prediction problems that have a variable number of inputs, outputs, or both inputs and outputs.
-
-The architecture involves two components: an encoder and a decoder.
-
-* Encoder: The encoder reads the entire input sequence and encodes it into an internal representation, often a fixed-length vector called the context vector.
-* Decoder: The decoder reads the encoded input sequence from the encoder and generates the output sequence.
-
-For more about the Encoder-Decoder architecture, see the post:
-
-* Encoder-Decoder Long Short-Term Memory Networks
-
-Both the encoder and the decoder submodels are trained jointly, meaning at the same time.
-
-This is quite a feat as traditionally, challenging natural language problems required the development of separate models that were later strung into a pipeline, allowing error to accumulate during the sequence generation process.
-
-The entire encoded input is used as context for generating each step in the output. Although this works, the fixed-length encoding of the input limits the length of output sequences that can be generated.
-
-An extension of the Encoder-Decoder architecture is to provide a more expressive form of the encoded input sequence and allow the decoder to learn where to pay attention to the encoded input when generating each step of the output sequence.
-
-This extension of the architecture is called attention.
-The Encoder-Decoder architecture with attention is popular for a suite of natural language processing problems that generate variable length output sequences, such as text summarization.
-The application of architecture to text summarization is as follows:
-
-* Encoder: The encoder is responsible for reading the source document and encoding it to an internal representation.
-* Decoder: The decoder is a language model responsible for generating each word in the output summary using the encoded representation of the source document.
-
-## N-Gram models
-
-N-gram models are probabilistic models that assign probabilities on the “next” word in a sequence, given the n-1 previous words. This algorithm takes in an array of Strings (the songs in our corpus), and uses punctuation to select beginning and end tokens on each sentence.
-Baking lyrics uses a trigram model, since it calculates the frecuencies in which every three-word combination appear on each band's corpus, and extrapolates the probabilities from there.
-
-# FAQ
-_There is always something that breaks_
-
-## TensorFlow
-
-If needed, different wheels (*.whl) for TF could be found here: [TensorFlow](https://www.tensorflow.org/install/pip). Use it to adjust the `ml` extra in [pyproject.toml](pyproject.toml) accordingly. 
-
-## Production
-
-Serve the app with `gunicorn baking.manage:app --timeout 600` (Linux; the long timeout leaves room for loading the models at startup), with `APP_CONFIG_FILE=config/production.py`, `SECRET_KEY` and `DATABASE_URL` set. Run `flask --app baking.manage db upgrade` on each release.
+- Outside Lambda the adapter extension stays idle and gunicorn answers directly on port 8080.
+- Pass the data settings the API needs with `-e` (for example `-e BAKING_TABLE_PREFIX=baking-lyrics-dev -e AWS_REGION=us-east-1` plus AWS credentials).
+- To use a local model bundle instead of S3, mount it and set `MODEL_DIR`: `-v /path/to/bundle:/bundle:ro -e MODEL_DIR=/bundle`.
+- Logs go to stdout; on AWS they are in the CloudWatch log group `/aws/lambda/baking-lyrics-backend`.

@@ -1,6 +1,3 @@
-import os
-import tempfile
-
 DEBUG = False
 '''
 Whether debug mode is enabled.
@@ -40,20 +37,13 @@ Do not enable development when deploying in production.
 SERVER_NAME_LOG = 'ai.bakinglyrics.com'  # So I don't use SERVER_NAME (reserved)
 
 # Logs
-LOG_DIR = os.path.join(tempfile.gettempdir(), 'logs')
+LOG_DIR = None  # stdout only: Lambda sends it to CloudWatch and its filesystem is read-only except /tmp
 LOG_LEVEL = 2
 
 # AWS
 AWS = True
 AWS_BUCKET = 'bakinglyrics'
-AWS_REGION = 'us-east-2'
 
-# Models
-MODELS_PATH = r'resources/models'
-MODEL_NAME_STR = 'lyrics_skth_v0_20_40_300_5000_100'
-
-# SQLAlchemy settings
-SQLALCHEMY_ECHO = False
-SQLALCHEMY_TRACK_MODIFICATIONS = False
+# Seeding (python -m baking.refresh_database)
 DATA_FILE_PATH = r'resources/lyrics.csv'
 

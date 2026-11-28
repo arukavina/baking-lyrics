@@ -1,0 +1,27 @@
+# Only pyproject.toml, uv.lock, config/, baking/ and the serving modules of ml/ are copied into the image.
+.git
+.github
+.venv
+.env
+.env.*
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+logs
+docs
+img
+migrations
+baking/tests
+baking/resources/*.db
+baking/resources/lyrics.csv
+Dockerfile
+.dockerignore
+# ml/: only the modules serving needs (no torch code, data, notebooks, tests, runs or bundles)
+ml/*
+!ml/__init__.py
+!ml/generate.py
+!ml/tokenizer.py

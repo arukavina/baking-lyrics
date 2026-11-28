@@ -1,17 +1,15 @@
-
 # Generic
 import logging
 
 # Libs
 from flask import request
 from flask_restx import Resource, abort
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main import api
-from baking.main.database.models import Song
-from baking.main.v1.models.business import create_song, delete_song, update_song
-from baking.main.v1.serializers import song
+from baking.main.repository import get_repository
+from baking.main.v1.parsers import page_of, pagination_arguments
+from baking.main.v1.serializers import page_of_songs, song, song_view
 
 logger = logging.getLogger('baking-api')
 ns = api.namespace('songs', description='Operations related to songs')
@@ -20,23 +18,16 @@ ns = api.namespace('songs', description='Operations related to songs')
 @ns.route('/')
 class SongCollection(Resource):
 
-    @ns.marshal_list_with(song)
+    @api.expect(pagination_arguments)
+    @ns.marshal_with(page_of_songs)
     def get(self):
         """
-        Returns list of songs
+        Returns a page of songs ordered by id.
         """
-        songs = Song.query.all()
-        return songs
-
-    @ns.response(201, 'Song successfully created.')
-    @ns.expect(song)
-    def post(self):
-        """
-        Creates a new song.
-        """
-        data = request.json
-        create_song(data)
-        return None, 201
+        args = pagination_arguments.parse_args(request)
+        page, per_page = args.get('page', 1), args.get('per_page', 10)
+        songs, total = get_repository().page_songs(page, per_page)
+        return page_of([song_view(found) for found in songs], total, page, per_page)
 
 
 @ns.route('/<int:song_id>')
@@ -49,34 +40,7 @@ class SongItem(Resource):
         Returns a song with a list of bands.
         """
         logger.debug('Getting song %s', song_id)
-        try:
-            return Song.query.filter(Song.id == song_id).one()
-        except NoResultFound:
+        found = get_repository().get_song(song_id)
+        if found is None:
             abort(404, 'Song not found.')
-
-    @ns.expect(song)
-    @ns.response(204, 'Song successfully updated.')
-    def put(self, song_id):
-        """
-        Updates a song.
-        Use this method to change the name of a song.
-        * Send a JSON object with the new name in the request body.
-        ```
-        {
-          "name": "New Song Name"
-        }
-        ```
-        * Specify the ID of the song to modify in the request URL path.
-        """
-        data = request.json
-        update_song(song_id, data)
-        return None, 204
-
-    @ns.response(204, 'Song successfully deleted.')
-    def delete(self, song_id):
-        """
-        Deletes a song.
-        """
-        delete_song(song_id)
-        return None, 204
-
+        return song_view(found)

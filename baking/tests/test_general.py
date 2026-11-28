@@ -50,11 +50,24 @@ def test_index(app, client):
     assert client.get('/api/v1/general/').status_code == 200
 
 
-def test_random_after_deleting_songs(client):
-    for song_id in range(1, 6):
-        assert client.delete(f'/api/v1/songs/{song_id}').status_code == 204
 
-    response = client.get('/api/v1/general/random')
+@pytest.mark.parametrize('method, url', [
+    ('post', '/api/v1/artists/'),
+    ('put', '/api/v1/artists/1'),
+    ('delete', '/api/v1/artists/1'),
+    ('post', '/api/v1/genres/'),
+    ('put', '/api/v1/genres/1'),
+    ('delete', '/api/v1/genres/1'),
+    ('post', '/api/v1/songs/'),
+    ('put', '/api/v1/songs/1'),
+    ('delete', '/api/v1/songs/1'),
+])
+def test_catalog_is_read_only(client, method, url):
+    assert getattr(client, method)(url, json={'name': 'x'}).status_code == 405
 
-    assert response.status_code == 200
-    assert response.json['id'] == 6
+
+def test_random_on_empty_catalog_is_404(aws, make_app):
+    response = make_app().test_client().get('/api/v1/general/random')
+
+    assert response.status_code == 404
+    assert response.json == {'message': 'A database result was required but none was found.'}

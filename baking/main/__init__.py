@@ -2,44 +2,31 @@
 
 # Generics
 import datetime
-import importlib.util
 import logging
 import os
-import traceback
 from pathlib import Path
 
 # Libs
 from dotenv import load_dotenv
 from flask import Flask
 from flask_bcrypt import Bcrypt
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_migrate import Migrate
+from flask_cors import CORS
 from flask_restx import Api
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import NoResultFound
 
 # Own
 from baking.main.util import build_info, log_utils
 
-# Repository root (the folder holding `baking/`, `config/` and `migrations/`).
+# Repository root (the folder holding `baking/` and `config/`).
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Development/testing only fallback; production must provide SECRET_KEY via the environment.
+# Development/testing only fallbacks; production must provide SECRET_KEY and ALLOWED_ORIGINS via the environment.
 _DEV_SECRET_KEY = 'dev-insecure-secret-key'
-
-db = SQLAlchemy()
-
-migrate = Migrate(directory=str(REPO_ROOT / 'migrations'))
+_DEV_ALLOWED_ORIGINS = ['http://localhost:3000']
 
 flask_bcrypt = Bcrypt()
 
 api = Api(version='1.0', title='Baking-Lyrics API',
           description='A funny lyrics generator Flask RESTX powered API')
-
-# No global limits: only endpoints that write public counters are limited (see SHARE_RATE_LIMIT)
-limiter = Limiter(key_func=get_remote_address, default_limits=[])
 
 _logger = logging.getLogger('baking-api')
 
@@ -49,12 +36,6 @@ def default_error_handler(error):
     message = 'An unhandled exception occurred.'
     _logger.error('%s: %s', message, error, exc_info=error)
     return {'message': message}, 500
-
-
-@api.errorhandler(NoResultFound)
-def database_not_found_error_handler(error):
-    _logger.warning('NoResultFound: %s\n%s', error, traceback.format_exc())
-    return {'message': 'A database result was required but none was found.'}, 404
 
 
 def resolve_path(path):
@@ -67,53 +48,6 @@ def resolve_path(path):
     if not path.is_absolute():
         path = REPO_ROOT / path
     return path
-
-
-def _load_ml_models(app, logger):
-    """
-    Loads the tokenizer and the Keras models. Returns True when the models are ready to be used.
-    Missing optional dependencies (TensorFlow/Keras) or missing model files only produce a warning.
-    """
-    if importlib.util.find_spec('keras') is None or importlib.util.find_spec('keras_self_attention') is None:
-        logger.warning('Keras / keras-self-attention are not installed (optional `ml` extra). '
-                       'Generation endpoints will answer 503.')
-        return False
-
-    from baking.main.v1.models import machine_learning as ml
-
-    logger.info('Instantiating AI models')
-
-    model_name_str = app.config['MODEL_NAME_STR']
-    aws = app.config['AWS']
-    # On AWS the paths are S3 object keys and must stay relative.
-    model_path = app.config['MODELS_PATH'] if aws else str(resolve_path(app.config['MODELS_PATH']))
-
-    logger.info('AWS: %s', aws)
-
-    try:
-        tokenizer = ml.Tokenizer(
-            model_name=model_name_str,
-            artist_genre_tokenizer_path=os.path.join(model_path, model_name_str + '.artist_genre_tokenizer.npz'),
-            tokenizer_path=os.path.join(model_path, model_name_str + '.tokenizer.pickle'),
-            embedded_matrix_path=os.path.join(model_path, model_name_str + '.embmat.npz'),
-            from_aws=aws
-        )
-        tokenizer.load()
-
-        ml_model = ml.LyricsSkthModel(
-            decoder_model_path=os.path.join(model_path, model_name_str + '.model.generator_word.h5'),
-            gen_model_context_path=os.path.join(model_path, model_name_str + '.model.generator_context.h5'),
-            model_verse_emb_context_path=os.path.join(model_path, model_name_str + '.model.verse_emb_context.h5'),
-            model_stv_encoder_path=os.path.join(model_path, model_name_str + '.model.skipthought.h5'),
-            tokenizer=tokenizer,
-            from_aws=aws
-        )
-        ml_model.load_model()
-    except Exception:  # any failure here must not prevent the API from booting
-        logger.warning('Could not load the ML models; generation endpoints will answer 503.', exc_info=True)
-        return False
-
-    return True
 
 
 def create_app(app_config_file=None, test_config=None):
@@ -153,6 +87,13 @@ def create_app(app_config_file=None, test_config=None):
         else:
             raise RuntimeError('SECRET_KEY environment variable must be set outside development/testing')
 
+    if not app.config.get('ALLOWED_ORIGINS'):
+        if app.config.get('ENV') in ('development', 'testing'):
+            app.config['ALLOWED_ORIGINS'] = list(_DEV_ALLOWED_ORIGINS)
+        else:
+            raise RuntimeError('ALLOWED_ORIGINS environment variable must be set outside development/testing '
+                               '(comma separated origins of the frontend, e.g. https://bakinglyrics.com)')
+
     # Setting up logger
     time_stamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M_%S')
     log_utils.setup_logging('baking-api', time_stamp, app.config)
@@ -166,16 +107,19 @@ def create_app(app_config_file=None, test_config=None):
                                                                        app.config['SERVER_NAME_LOG'],
                                                                        os.getenv('FLASK_RUN_PORT', '9090')))
 
-    db_url = make_url(app.config['SQLALCHEMY_DATABASE_URI']).render_as_string(hide_password=True)
-    logger.info(f'Using DB: {db_url}')
+    # Data: DynamoDB tables, reached lazily on first use
+    from baking.main.repository import EXTENSION_KEY, repository_from_config
 
-    # Igniting DB
-    db.init_app(app)
-    migrate.init_app(app, db)
-    limiter.init_app(app)
+    app.extensions[EXTENSION_KEY] = repository_from_config(app.config)
+    logger.info('Using DynamoDB tables %s-* in %s%s', app.config['BAKING_TABLE_PREFIX'], app.config['AWS_REGION'],
+                f" at {app.config['DYNAMODB_ENDPOINT_URL']}" if app.config.get('DYNAMODB_ENDPOINT_URL') else '')
 
     # Bcrypt
     flask_bcrypt.init_app(app)
+
+    # CORS, only for the API and only from the configured origins
+    CORS(app, resources={r'/api/*': {'origins': app.config['ALLOWED_ORIGINS']}},
+         methods=['GET', 'POST', 'OPTIONS'], allow_headers=['Content-Type'])
 
     # Build info, resolved once and served by /general/version
     build = build_info.resolve_build_info(REPO_ROOT)
@@ -188,9 +132,9 @@ def create_app(app_config_file=None, test_config=None):
 
     app = v1.init_app(app, api)
 
-    app.extensions['ml_available'] = False
-    if app.config['ENV'] != 'testing':
-        with app.app_context():
-            app.extensions['ml_available'] = _load_ml_models(app, logger)
+    # Lyrics model: loaded on the first generation request, or now in the background with MODEL_PRELOAD=true
+    from baking.main.v1.models import generator
+
+    generator.init_app(app)
 
     return app
